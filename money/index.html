@@ -266,9 +266,13 @@ body {
   <h1>💰 お金ゲーム</h1>
   <p>同じ硬貨を集めて両替しよう！</p>
   <div class="mode-buttons">
-    <button class="start-btn mode-btn" onclick="startGame('normal')">
-      ノーマル
-      <span class="mode-desc">ランダムにコインが出る</span>
+    <button class="start-btn mode-btn" onclick="startGame('normal-easy')">
+      ノーマル（かんたん）
+      <span class="mode-desc">落ちたお金を動かせる</span>
+    </button>
+    <button class="start-btn mode-btn" onclick="startGame('normal-hard')">
+      ノーマル（むずかしい）
+      <span class="mode-desc">落ちたお金は動かせない</span>
     </button>
     <button class="start-btn mode-btn" onclick="startGame('free')">
       フリーモード
@@ -376,6 +380,7 @@ let stickyPairs = new Set(); // 既に接着済みのペアID
 let gameCanvas, gameCtx;
 let isDropMode = true; // true=ドロップモード, false=ドラッグ中
 let gameMode = 'normal'; // 'normal', 'free', 'challenge'
+let difficulty = 'easy'; // 'easy' or 'hard'
 let selectedCoinIndex = 0; // フリー/チャレンジモードで選択中のコイン
 let challengeLevel = 0;    // チャレンジモードの現在レベル
 let challengeTargetIndex = -1; // チャレンジの目標MONEY_TYPESインデックス
@@ -1000,19 +1005,21 @@ function onPointerUp(e) {
 function handlePointerDown(pos) {
   if (gameOver) return;
 
-  // 既存のボディをクリックしたか確認
-  const bodies = Matter.Composite.allBodies(world);
-  for (const body of bodies) {
-    if (body.isStatic || !body.moneyValue) continue;
-    const dx = pos.x - body.position.x;
-    const dy = pos.y - body.position.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < body.circleRadius + 5) {
-      // ドラッグ開始（スリープ解除）
-      draggedBody = body;
-      Matter.Sleeping.set(body, false);
-      isDropMode = false;
-      return;
+  // 既存のボディをクリックしたか確認（むずかしいモードではドラッグ不可）
+  if (difficulty !== 'hard') {
+    const bodies = Matter.Composite.allBodies(world);
+    for (const body of bodies) {
+      if (body.isStatic || !body.moneyValue) continue;
+      const dx = pos.x - body.position.x;
+      const dy = pos.y - body.position.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < body.circleRadius + 5) {
+        // ドラッグ開始（スリープ解除）
+        draggedBody = body;
+        Matter.Sleeping.set(body, false);
+        isDropMode = false;
+        return;
+      }
     }
   }
 
@@ -1615,7 +1622,16 @@ function drawGame() {
 
 // === ゲーム開始 ===
 function startGame(mode, level) {
-  gameMode = mode || 'normal';
+  if (mode === 'normal-easy') {
+    gameMode = 'normal';
+    difficulty = 'easy';
+  } else if (mode === 'normal-hard') {
+    gameMode = 'normal';
+    difficulty = 'hard';
+  } else {
+    gameMode = mode || 'normal';
+    difficulty = 'easy';
+  }
   initAudio();
   // クリーンアップ
   if (gameLoopInterval) { clearInterval(gameLoopInterval); gameLoopInterval = null; }
@@ -1654,7 +1670,8 @@ function startGame(mode, level) {
 }
 
 function retryGame() {
-  startGame(gameMode, challengeLevel);
+  const d = difficulty;
+  startGame(gameMode === 'normal' ? 'normal-' + d : gameMode, challengeLevel);
 }
 
 // === ゲーム終了 ===
