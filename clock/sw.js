@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tokei-game-v3';
+const CACHE_NAME = 'tokei-game-v4';
 const ASSETS = [
   './',
   './index.html',
