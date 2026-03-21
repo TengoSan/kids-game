@@ -55,7 +55,7 @@ p.sub { color:rgba(255,255,255,0.8); font-size:0.95em; margin-bottom:1em; }
 @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
 
 /* バブル表示エリア */
-.bubble-area { width:100%; height:260px; display:flex; align-items:center; justify-content:center;
+.bubble-area { width:100%; height:320px; display:flex; align-items:center; justify-content:center;
   margin:0.5em 0; position:relative; }
 .bubble-container { position:relative; }
 .bubble { position:relative; border-radius:50%; display:flex; align-items:center; justify-content:center;
@@ -73,7 +73,7 @@ p.sub { color:rgba(255,255,255,0.8); font-size:0.95em; margin-bottom:1em; }
 
 /* ドット */
 .dot-area { width:100%; height:100%; position:absolute; top:0; left:0; transition:filter 0.3s, opacity 0.3s; }
-.dot { position:absolute; font-size:38px; transform:translate(-50%,-50%); text-shadow:1px 1px 2px rgba(0,0,0,0.2); }
+.dot { position:absolute; font-size:48px; transform:translate(-50%,-50%); text-shadow:1px 1px 2px rgba(0,0,0,0.2); }
 
 /* 2バブルレイアウト（どっちがおおい & あわせて） */
 .bubble-area.dual { gap:16px; }
@@ -431,7 +431,7 @@ function setupCount() {
   const area = document.getElementById('bubble-area');
   area.className = 'bubble-area';
   area.innerHTML = '';
-  const bubble = createBubble(200);
+  const bubble = createBubble(260);
   createDots(bubble, n, lv.pattern);
   area.appendChild(bubble);
 
@@ -481,12 +481,12 @@ function setupCompare() {
   area.className = 'bubble-area dual';
   area.innerHTML = '';
 
-  const bLeft = createBubble(140);
+  const bLeft = createBubble(170);
   bLeft.id = 'bubble-left';
   createDots(bLeft, a, 'dice');
   area.appendChild(bLeft);
 
-  const bRight = createBubble(140);
+  const bRight = createBubble(170);
   bRight.id = 'bubble-right';
   createDots(bRight, b, 'dice');
   area.appendChild(bRight);
@@ -531,7 +531,7 @@ function setupSum() {
   area.className = 'bubble-area dual';
   area.innerHTML = '';
 
-  const bLeft = createBubble(130);
+  const bLeft = createBubble(160);
   createDots(bLeft, a, 'dice', 0);
   area.appendChild(bLeft);
 
@@ -540,7 +540,7 @@ function setupSum() {
   plus.textContent = '+';
   area.appendChild(plus);
 
-  const bRight = createBubble(130);
+  const bRight = createBubble(160);
   createDots(bRight, b, 'dice', 180);
   area.appendChild(bRight);
 
@@ -588,7 +588,7 @@ function setupMatch() {
   // 上段: 問題バブル
   const topRow = document.createElement('div');
   topRow.style.cssText = 'display:flex;justify-content:center;margin-bottom:12px;';
-  const topBubble = createBubble(120);
+  const topBubble = createBubble(150);
   createDots(topBubble, n, 'dice');
   topRow.appendChild(topBubble);
   area.appendChild(topRow);
@@ -609,7 +609,7 @@ function setupMatch() {
 
   const choiceArr = [...choices].sort(() => Math.random() - 0.5);
   choiceArr.forEach(c => {
-    const b = createBubble(95);
+    const b = createBubble(115);
     b.style.cursor = 'pointer';
     createDots(b, c, 'random');
     b.onclick = () => {
