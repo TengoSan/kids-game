@@ -1,0 +1,9 @@
+{
+  "name": "ことばフラッシュ",
+  "short_name": "ことばフラッシュ",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#6c5ce7",
+  "theme_color": "#6c5ce7",
+  "orientation": "portrait"
+}
