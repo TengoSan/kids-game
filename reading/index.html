@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ことばフラッシュ</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#6c5ce7">
+<link rel="manifest" href="manifest.json">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; overflow:hidden; touch-action:manipulation;
+  -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; }
+body { font-family:'Hiragino Kaku Gothic ProN','Rounded Mplus 1c','Noto Sans JP',sans-serif;
+  background:linear-gradient(135deg,#6c5ce7 0%,#a29bfe 50%,#fd79a8 100%);
+  display:flex; align-items:center; justify-content:center; }
+
+/* 背景パーティクル */
+.bg-particles { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; overflow:hidden; }
+.particle { position:absolute; border-radius:50%; opacity:0.15; animation:drift linear infinite; }
+@keyframes drift {
+  0% { transform:translateY(0) rotate(0deg); }
+  100% { transform:translateY(-110vh) rotate(360deg); }
+}
+
+/* 画面共通 */
+.screen { display:none; flex-direction:column; align-items:center; justify-content:center;
+  width:100%; max-width:480px; padding:1.5em; text-align:center; position:relative; z-index:1;
+  min-height:100vh; }
+.screen.active { display:flex; }
+#game-screen { justify-content:flex-start; padding-top:1.5em; }
+
+h1 { color:#fff; font-size:2.2em; margin-bottom:0.2em; text-shadow:2px 2px 8px rgba(0,0,0,0.3);
+  letter-spacing:0.05em; }
+h2 { color:#fff; font-size:1.6em; margin-bottom:0.4em; text-shadow:1px 1px 4px rgba(0,0,0,0.3); }
+p.sub { color:rgba(255,255,255,0.85); font-size:1em; margin-bottom:1.2em; line-height:1.5; }
+
+/* ボタン */
+.btn { display:block; width:280px; margin:0.5em auto; padding:0.9em 1em; border:none; border-radius:16px;
+  font-size:1.2em; font-weight:bold; cursor:pointer; transition:transform 0.1s, box-shadow 0.1s;
+  box-shadow:0 4px 15px rgba(0,0,0,0.25); font-family:inherit; }
+.btn:active { transform:scale(0.95); box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+.btn-primary { background:linear-gradient(135deg,#6c5ce7,#a29bfe); color:#fff; }
+.btn-category { background:linear-gradient(135deg,#fff,#f0f0f0); color:#6c5ce7;
+  font-size:1.1em; position:relative; overflow:hidden; }
+.btn-category .emoji { font-size:1.4em; margin-right:0.3em; }
+.btn-back { background:rgba(255,255,255,0.2); color:#fff; width:auto; padding:0.6em 1.8em;
+  font-size:0.95em; border-radius:12px; margin-top:1em; }
+
+/* ゲーム画面 */
+.game-header { width:100%; display:flex; justify-content:space-between; align-items:center;
+  padding:0 0.5em; margin-bottom:1em; }
+.game-header .back-arrow { background:none; border:none; color:#fff; font-size:1.5em; cursor:pointer;
+  padding:0.3em; }
+.score-display { color:#fff; font-size:1.1em; font-weight:bold; }
+.level-display { color:rgba(255,255,255,0.8); font-size:0.9em; }
+.progress-bar { width:100%; height:8px; background:rgba(255,255,255,0.2); border-radius:4px;
+  margin-bottom:1.5em; overflow:hidden; }
+.progress-fill { height:100%; background:linear-gradient(90deg,#fdcb6e,#e17055); border-radius:4px;
+  transition:width 0.3s ease; }
+
+/* フラッシュエリア */
+.flash-area { width:100%; min-height:160px; display:flex; align-items:center; justify-content:center;
+  margin-bottom:1.5em; position:relative; }
+.flash-word { font-size:3.5em; font-weight:bold; color:#fff; text-shadow:3px 3px 10px rgba(0,0,0,0.3);
+  opacity:0; transition:none; letter-spacing:0.1em; }
+.flash-word.visible { opacity:1; }
+.flash-word.hint { font-size:2em; opacity:0.5; }
+
+/* カウントダウン */
+.countdown { font-size:5em; color:#fff; font-weight:bold; text-shadow:3px 3px 10px rgba(0,0,0,0.3);
+  animation:pulse 0.5s ease-in-out; }
+@keyframes pulse { 0%{transform:scale(1.3);opacity:0} 50%{opacity:1} 100%{transform:scale(1);opacity:1} }
+
+/* 選択肢 */
+.choices { width:100%; display:flex; flex-direction:column; gap:0.8em; align-items:center; }
+.choice-btn { width:90%; max-width:350px; padding:1.1em 1.5em; border:3px solid rgba(255,255,255,0.3);
+  border-radius:16px; background:rgba(255,255,255,0.12); color:#fff; font-size:1.5em;
+  font-weight:bold; cursor:pointer; transition:all 0.15s; font-family:inherit;
+  backdrop-filter:blur(4px); letter-spacing:0.08em; }
+.choice-btn:active { transform:scale(0.97); }
+.choice-btn.correct { background:rgba(0,184,148,0.6); border-color:#00b894;
+  animation:pop 0.3s ease; }
+.choice-btn.wrong { background:rgba(214,48,49,0.4); border-color:#d63031;
+  animation:shake 0.4s ease; }
+@keyframes pop { 0%{transform:scale(1)} 50%{transform:scale(1.05)} 100%{transform:scale(1)} }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+
+/* フィードバック */
+.feedback { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:100;
+  pointer-events:none; }
+.feedback-text { font-size:3em; font-weight:bold; opacity:0; animation:feedbackAnim 0.8s ease forwards; }
+@keyframes feedbackAnim { 0%{opacity:0;transform:scale(0.5)} 30%{opacity:1;transform:scale(1.2)}
+  60%{opacity:1;transform:scale(1)} 100%{opacity:0;transform:scale(1) translateY(-30px)} }
+.feedback-text.good { color:#00b894; text-shadow:2px 2px 8px rgba(0,184,148,0.5); }
+.feedback-text.miss { color:#fdcb6e; text-shadow:2px 2px 8px rgba(253,203,110,0.5); }
+
+/* 星エフェクト */
+.star { position:fixed; pointer-events:none; z-index:99; font-size:1.5em;
+  animation:starFly 0.8s ease-out forwards; }
+@keyframes starFly { 0%{opacity:1;transform:scale(0)} 50%{opacity:1;transform:scale(1.2)}
+  100%{opacity:0;transform:scale(0.5) translateY(-80px)} }
+
+/* リザルト画面 */
+.result-icon { font-size:4em; margin-bottom:0.3em; animation:bounce 0.6s ease; }
+@keyframes bounce { 0%{transform:translateY(-20px);opacity:0} 60%{transform:translateY(5px)}
+  100%{transform:translateY(0);opacity:1} }
+.result-score { color:#fff; font-size:2.5em; font-weight:bold; margin:0.2em 0;
+  text-shadow:2px 2px 8px rgba(0,0,0,0.3); }
+.result-detail { color:rgba(255,255,255,0.85); font-size:1.1em; margin:0.3em 0; }
+.result-stars { font-size:2.5em; margin:0.5em 0; }
+.new-record { color:#fdcb6e; font-size:1.2em; font-weight:bold; margin:0.5em 0;
+  animation:pulse 0.5s ease infinite alternate; }
+
+/* ことばずかん */
+.zukan-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:0.5em; width:100%;
+  max-height:60vh; overflow-y:auto; padding:0.5em; margin:0.5em 0; }
+.zukan-item { background:rgba(255,255,255,0.15); border-radius:12px; padding:0.6em 0.4em;
+  color:#fff; font-size:0.95em; text-align:center; backdrop-filter:blur(4px); }
+.zukan-item .word-emoji { font-size:1.5em; display:block; margin-bottom:0.2em; }
+.zukan-count { color:rgba(255,255,255,0.7); font-size:0.9em; margin:0.5em 0; }
+
+/* レスポンシブ */
+@media (max-height:600px) {
+  h1 { font-size:1.6em; }
+  .flash-word { font-size:2.5em; }
+  .flash-area { min-height:100px; }
+  .choice-btn { padding:0.8em 1em; font-size:1.2em; }
+}
+</style>
+</head>
+<body>
+
+<div class="bg-particles" id="bg-particles"></div>
+
+<!-- タイトル画面 -->
+<div class="screen active" id="title-screen">
+  <h1>ことばフラッシュ</h1>
+  <p class="sub">ことばを みて おぼえよう！<br>いっしゅんで よめるかな？</p>
+  <button class="btn btn-primary" onclick="showScreen('category-screen')">あそぶ</button>
+  <button class="btn btn-back" onclick="showScreen('zukan-screen')">ことばずかん</button>
+</div>
+
+<!-- カテゴリ選択画面 -->
+<div class="screen" id="category-screen">
+  <h2>テーマを えらぼう</h2>
+  <p class="sub">すきな テーマを タッチ！</p>
+  <button class="btn btn-category" onclick="startGame('doubutsu')"><span class="emoji">🐾</span>どうぶつ</button>
+  <button class="btn btn-category" onclick="startGame('tabemono')"><span class="emoji">🍎</span>たべもの</button>
+  <button class="btn btn-category" onclick="startGame('norimono')"><span class="emoji">🚗</span>のりもの</button>
+  <button class="btn btn-category" onclick="startGame('shizen')"><span class="emoji">🌸</span>しぜん</button>
+  <button class="btn btn-category" onclick="startGame('mix')"><span class="emoji">🌈</span>ミックス</button>
+  <button class="btn btn-back" onclick="showScreen('title-screen')">もどる</button>
+</div>
+
+<!-- ゲーム画面 -->
+<div class="screen" id="game-screen">
+  <div class="game-header">
+    <button class="back-arrow" onclick="confirmQuit()">←</button>
+    <div>
+      <span class="score-display" id="score-display">0てん</span>
+      <br><span class="level-display" id="level-display">レベル1</span>
+    </div>
+    <span class="score-display" id="question-display">1/10</span>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  <div class="flash-area" id="flash-area">
+    <span class="flash-word" id="flash-word"></span>
+  </div>
+  <div class="choices" id="choices"></div>
+</div>
+
+<!-- リザルト画面 -->
+<div class="screen" id="result-screen">
+  <div class="result-icon" id="result-icon">🎉</div>
+  <h2>けっか</h2>
+  <div class="result-score" id="result-score">0てん</div>
+  <div class="result-detail" id="result-detail"></div>
+  <div class="result-stars" id="result-stars"></div>
+  <div id="new-record-display"></div>
+  <button class="btn btn-primary" onclick="startGame(currentCategory)">もういちど</button>
+  <button class="btn btn-back" onclick="showScreen('category-screen')">テーマをかえる</button>
+  <button class="btn btn-back" onclick="showScreen('title-screen')">タイトルへ</button>
+</div>
+
+<!-- ことばずかん画面 -->
+<div class="screen" id="zukan-screen">
+  <h2>ことばずかん</h2>
+  <div class="zukan-count" id="zukan-count"></div>
+  <div class="zukan-grid" id="zukan-grid"></div>
+  <button class="btn btn-back" onclick="showScreen('title-screen')">もどる</button>
+</div>
+
+<div class="feedback" id="feedback"></div>
+
+<script>
+// ====== 単語データ ======
+const WORDS = {
+  doubutsu: [
+    { word:'ねこ', emoji:'🐱' }, { word:'いぬ', emoji:'🐶' }, { word:'うさぎ', emoji:'🐰' },
+    { word:'くま', emoji:'🐻' }, { word:'ぞう', emoji:'🐘' }, { word:'きりん', emoji:'🦒' },
+    { word:'さる', emoji:'🐵' }, { word:'うま', emoji:'🐴' }, { word:'ひつじ', emoji:'🐑' },
+    { word:'ぶた', emoji:'🐷' }, { word:'とり', emoji:'🐦' }, { word:'かめ', emoji:'🐢' },
+    { word:'りす', emoji:'🐿️' }, { word:'ぺんぎん', emoji:'🐧' }, { word:'いるか', emoji:'🐬' },
+    { word:'くじら', emoji:'🐳' }, { word:'らいおん', emoji:'🦁' }, { word:'しか', emoji:'🦌' },
+    { word:'たぬき', emoji:'🦝' }, { word:'ふくろう', emoji:'🦉' },
+  ],
+  tabemono: [
+    { word:'りんご', emoji:'🍎' }, { word:'ばなな', emoji:'🍌' }, { word:'いちご', emoji:'🍓' },
+    { word:'みかん', emoji:'🍊' }, { word:'ぶどう', emoji:'🍇' }, { word:'すいか', emoji:'🍉' },
+    { word:'もも', emoji:'🍑' }, { word:'さくらんぼ', emoji:'🍒' }, { word:'ぱん', emoji:'🍞' },
+    { word:'おにぎり', emoji:'🍙' }, { word:'らーめん', emoji:'🍜' }, { word:'すし', emoji:'🍣' },
+    { word:'けーき', emoji:'🎂' }, { word:'ぷりん', emoji:'🍮' }, { word:'あいす', emoji:'🍦' },
+    { word:'ぴざ', emoji:'🍕' }, { word:'かれー', emoji:'🍛' }, { word:'どーなつ', emoji:'🍩' },
+    { word:'たまご', emoji:'🥚' }, { word:'にんじん', emoji:'🥕' },
+  ],
+  norimono: [
+    { word:'くるま', emoji:'🚗' }, { word:'でんしゃ', emoji:'🚃' }, { word:'ひこうき', emoji:'✈️' },
+    { word:'ばす', emoji:'🚌' }, { word:'ふね', emoji:'🚢' }, { word:'じてんしゃ', emoji:'🚲' },
+    { word:'しょうぼうしゃ', emoji:'🚒' }, { word:'きゅうきゅうしゃ', emoji:'🚑' },
+    { word:'ぱとかー', emoji:'🚓' }, { word:'たくしー', emoji:'🚕' },
+    { word:'しんかんせん', emoji:'🚅' }, { word:'ろけっと', emoji:'🚀' },
+    { word:'へりこぷたー', emoji:'🚁' }, { word:'よっと', emoji:'⛵' },
+    { word:'とらっく', emoji:'🚚' }, { word:'もーたーばいく', emoji:'🏍️' },
+  ],
+  shizen: [
+    { word:'はな', emoji:'🌸' }, { word:'やま', emoji:'⛰️' }, { word:'うみ', emoji:'🌊' },
+    { word:'そら', emoji:'☁️' }, { word:'ほし', emoji:'⭐' }, { word:'つき', emoji:'🌙' },
+    { word:'たいよう', emoji:'☀️' }, { word:'あめ', emoji:'🌧️' }, { word:'ゆき', emoji:'❄️' },
+    { word:'にじ', emoji:'🌈' }, { word:'かぜ', emoji:'🍃' }, { word:'かわ', emoji:'🏞️' },
+    { word:'もり', emoji:'🌲' }, { word:'ひまわり', emoji:'🌻' }, { word:'さくら', emoji:'🌸' },
+    { word:'ちょうちょ', emoji:'🦋' }, { word:'かぶとむし', emoji:'🪲' }, { word:'ほたる', emoji:'✨' },
+  ],
+};
+
+// ====== ゲーム状態 ======
+let currentCategory = 'doubutsu';
+let currentLevel = 1;
+let currentQuestion = 0;
+let score = 0;
+let correctCount = 0;
+let totalQuestions = 10;
+let currentAnswer = null;
+let isAnswering = false;
+let roundWords = [];
+
+// フラッシュ時間（ミリ秒）- レベルで変化
+function getFlashTime() {
+  const times = [1200, 1000, 800, 650, 500, 400, 350, 300];
+  return times[Math.min(currentLevel - 1, times.length - 1)];
+}
+
+// ====== 音声 ======
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function ensureAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
+
+function playSound(type) {
+  ensureAudio();
+  const ctx = audioCtx;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  if (type === 'correct') {
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(523, ctx.currentTime);
+    osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+    osc.frequency.setValueAtTime(784, ctx.currentTime + 0.2);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.4);
+  } else if (type === 'wrong') {
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(200, ctx.currentTime);
+    osc.frequency.setValueAtTime(150, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.3);
+  } else if (type === 'flash') {
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.15);
+  } else if (type === 'result') {
+    [523,659,784,1047].forEach((f, i) => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f, ctx.currentTime + i * 0.15);
+      g.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.15);
+      g.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.3);
+      o.start(ctx.currentTime + i * 0.15);
+      o.stop(ctx.currentTime + i * 0.15 + 0.3);
+    });
+  }
+}
+
+// ====== 画面遷移 ======
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (id === 'zukan-screen') renderZukan();
+}
+
+// ====== ゲーム開始 ======
+function startGame(category) {
+  ensureAudio();
+  currentCategory = category;
+  currentQuestion = 0;
+  score = 0;
+  correctCount = 0;
+
+  // レベル判定（ローカルストレージの成績に基づく）
+  const saved = loadProgress();
+  currentLevel = saved.level || 1;
+
+  // 出題する単語を準備
+  let pool = [];
+  if (category === 'mix') {
+    Object.values(WORDS).forEach(ws => pool.push(...ws));
+  } else {
+    pool = [...WORDS[category]];
+  }
+  // レベルに応じて短い/長い単語をフィルタ
+  if (currentLevel <= 2) {
+    pool = pool.filter(w => w.word.length <= 3);
+  } else if (currentLevel <= 4) {
+    pool = pool.filter(w => w.word.length <= 4);
+  }
+  if (pool.length < 4) {
+    // フォールバック
+    if (category === 'mix') {
+      Object.values(WORDS).forEach(ws => pool.push(...ws));
+    } else {
+      pool = [...WORDS[category]];
+    }
+  }
+
+  // シャッフルして10問選ぶ
+  shuffle(pool);
+  roundWords = pool.slice(0, totalQuestions);
+  if (roundWords.length < totalQuestions) {
+    // 足りなければ繰り返す
+    while (roundWords.length < totalQuestions) {
+      roundWords.push(pool[roundWords.length % pool.length]);
+    }
+  }
+
+  document.getElementById('level-display').textContent = 'レベル' + currentLevel;
+  showScreen('game-screen');
+  nextQuestion();
+}
+
+// ====== 次の問題 ======
+function nextQuestion() {
+  if (currentQuestion >= totalQuestions) {
+    showResult();
+    return;
+  }
+
+  isAnswering = false;
+  const wordObj = roundWords[currentQuestion];
+  currentAnswer = wordObj;
+
+  // UI更新
+  document.getElementById('score-display').textContent = score + 'てん';
+  document.getElementById('question-display').textContent = (currentQuestion + 1) + '/' + totalQuestions;
+  document.getElementById('progress-fill').style.width = ((currentQuestion / totalQuestions) * 100) + '%';
+
+  // 選択肢を非表示
+  const choicesEl = document.getElementById('choices');
+  choicesEl.innerHTML = '';
+  choicesEl.style.opacity = '0';
+
+  // フラッシュ表示
+  const flashEl = document.getElementById('flash-word');
+  flashEl.textContent = wordObj.word;
+  flashEl.className = 'flash-word';
+
+  // カウントダウンなしで即フラッシュ
+  setTimeout(() => {
+    playSound('flash');
+    flashEl.classList.add('visible');
+
+    setTimeout(() => {
+      flashEl.classList.remove('visible');
+      // 選択肢を表示
+      setTimeout(() => showChoices(wordObj), 300);
+    }, getFlashTime());
+  }, 500);
+}
+
+// ====== 選択肢表示 ======
+function showChoices(correctWord) {
+  const choicesEl = document.getElementById('choices');
+  choicesEl.innerHTML = '';
+
+  // 不正解の選択肢を用意
+  let pool = [];
+  if (currentCategory === 'mix') {
+    Object.values(WORDS).forEach(ws => pool.push(...ws));
+  } else {
+    pool = [...WORDS[currentCategory]];
+  }
+  // 同じ文字数の単語を優先（難易度を上げるため）
+  const sameLenPool = pool.filter(w => w.word !== correctWord.word && w.word.length === correctWord.word.length);
+  const otherPool = pool.filter(w => w.word !== correctWord.word && w.word.length !== correctWord.word.length);
+  shuffle(sameLenPool);
+  shuffle(otherPool);
+
+  let distractors = sameLenPool.slice(0, 2);
+  if (distractors.length < 2) {
+    distractors = distractors.concat(otherPool.slice(0, 2 - distractors.length));
+  }
+
+  let options = [correctWord, ...distractors];
+  shuffle(options);
+
+  options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = opt.word;
+    btn.addEventListener('click', () => handleAnswer(btn, opt, correctWord));
+    choicesEl.appendChild(btn);
+  });
+
+  choicesEl.style.opacity = '1';
+  isAnswering = true;
+}
+
+// ====== 回答処理 ======
+function handleAnswer(btn, selected, correct) {
+  if (!isAnswering) return;
+  isAnswering = false;
+
+  const isCorrect = selected.word === correct.word;
+
+  if (isCorrect) {
+    btn.classList.add('correct');
+    playSound('correct');
+    showFeedback('good');
+    spawnStars(btn);
+
+    // スコア計算（フラッシュ時間が短いほど高得点）
+    const basePoints = 10;
+    const levelBonus = currentLevel * 2;
+    score += basePoints + levelBonus;
+
+    correctCount++;
+    addToZukan(correct);
+  } else {
+    btn.classList.add('wrong');
+    playSound('wrong');
+    showFeedback('miss');
+
+    // 正解をハイライト
+    document.querySelectorAll('.choice-btn').forEach(b => {
+      if (b.textContent === correct.word) b.classList.add('correct');
+    });
+  }
+
+  currentQuestion++;
+
+  setTimeout(() => {
+    nextQuestion();
+  }, isCorrect ? 800 : 1500);
+}
+
+// ====== フィードバック ======
+function showFeedback(type) {
+  const el = document.getElementById('feedback');
+  const text = type === 'good'
+    ? ['すごい！','やったね！','ばっちり！','かんぺき！'][Math.floor(Math.random()*4)]
+    : ['おしい！','もういちど！','がんばれ！'][Math.floor(Math.random()*3)];
+  el.innerHTML = `<span class="feedback-text ${type}">${text}</span>`;
+}
+
+function spawnStars(btn) {
+  const rect = btn.getBoundingClientRect();
+  for (let i = 0; i < 5; i++) {
+    const star = document.createElement('div');
+    star.className = 'star';
+    star.textContent = ['⭐','✨','🌟'][Math.floor(Math.random()*3)];
+    star.style.left = (rect.left + Math.random() * rect.width) + 'px';
+    star.style.top = (rect.top + Math.random() * rect.height) + 'px';
+    document.body.appendChild(star);
+    setTimeout(() => star.remove(), 800);
+  }
+}
+
+// ====== リザルト画面 ======
+function showResult() {
+  playSound('result');
+  const pct = correctCount / totalQuestions;
+  const stars = pct >= 0.9 ? 3 : pct >= 0.7 ? 2 : pct >= 0.4 ? 1 : 0;
+
+  document.getElementById('result-icon').textContent = pct >= 0.9 ? '🏆' : pct >= 0.7 ? '🎉' : pct >= 0.4 ? '😊' : '💪';
+  document.getElementById('result-score').textContent = score + 'てん';
+  document.getElementById('result-detail').textContent =
+    totalQuestions + 'もんちゅう ' + correctCount + 'もん せいかい！';
+  document.getElementById('result-stars').textContent =
+    '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+
+  // 記録更新チェック
+  const saved = loadProgress();
+  let isNewRecord = false;
+  if (score > (saved.bestScore || 0)) {
+    saved.bestScore = score;
+    isNewRecord = true;
+  }
+
+  // レベルアップ判定
+  if (pct >= 0.8 && currentLevel < 8) {
+    saved.level = currentLevel + 1;
+    document.getElementById('new-record-display').innerHTML =
+      `<div class="new-record">🎊 レベルアップ！→ レベル${saved.level}</div>`;
+  } else if (isNewRecord) {
+    document.getElementById('new-record-display').innerHTML =
+      `<div class="new-record">🎊 さいこうきろく こうしん！</div>`;
+  } else {
+    document.getElementById('new-record-display').innerHTML = '';
+  }
+
+  saved.totalGames = (saved.totalGames || 0) + 1;
+  saveProgress(saved);
+
+  showScreen('result-screen');
+}
+
+// ====== ことばずかん ======
+function addToZukan(wordObj) {
+  const zukan = loadZukan();
+  zukan[wordObj.word] = { emoji: wordObj.emoji, count: (zukan[wordObj.word]?.count || 0) + 1 };
+  localStorage.setItem('kotoba-zukan', JSON.stringify(zukan));
+}
+
+function loadZukan() {
+  try { return JSON.parse(localStorage.getItem('kotoba-zukan')) || {}; } catch { return {}; }
+}
+
+function renderZukan() {
+  const zukan = loadZukan();
+  const grid = document.getElementById('zukan-grid');
+  const entries = Object.entries(zukan);
+
+  document.getElementById('zukan-count').textContent =
+    entries.length + 'コの ことばを あつめたよ！';
+
+  // 全単語リストと照合
+  const allWords = [];
+  Object.values(WORDS).forEach(ws => ws.forEach(w => {
+    if (!allWords.find(a => a.word === w.word)) allWords.push(w);
+  }));
+
+  grid.innerHTML = '';
+  allWords.forEach(w => {
+    const item = document.createElement('div');
+    item.className = 'zukan-item';
+    const found = zukan[w.word];
+    if (found) {
+      item.innerHTML = `<span class="word-emoji">${w.emoji}</span>${w.word}`;
+    } else {
+      item.innerHTML = `<span class="word-emoji">❓</span>???`;
+      item.style.opacity = '0.4';
+    }
+    grid.appendChild(item);
+  });
+}
+
+// ====== セーブ/ロード ======
+function loadProgress() {
+  try { return JSON.parse(localStorage.getItem('kotoba-flash-progress')) || {}; } catch { return {}; }
+}
+function saveProgress(data) {
+  localStorage.setItem('kotoba-flash-progress', JSON.stringify(data));
+}
+
+// ====== ユーティリティ ======
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function confirmQuit() {
+  if (confirm('ゲームを やめますか？')) showScreen('title-screen');
+}
+
+// ====== 背景パーティクル ======
+(function initParticles() {
+  const container = document.getElementById('bg-particles');
+  const colors = ['#a29bfe','#fd79a8','#fdcb6e','#00b894','#74b9ff'];
+  for (let i = 0; i < 15; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 20 + Math.random() * 40;
+    p.style.width = size + 'px';
+    p.style.height = size + 'px';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.bottom = -size + 'px';
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    p.style.animationDuration = (8 + Math.random() * 12) + 's';
+    p.style.animationDelay = Math.random() * 10 + 's';
+    container.appendChild(p);
+  }
+})();
+
+// Service Worker登録
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
