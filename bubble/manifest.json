@@ -1,0 +1,9 @@
+{
+  "name": "かずのバブル",
+  "short_name": "バブル",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0077b6",
+  "theme_color": "#0077b6"
+}

@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>かずのバブル</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0077b6">
+<link rel="manifest" href="manifest.json">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; overflow:hidden; touch-action:none;
+  -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; }
+body { font-family:'Hiragino Kaku Gothic ProN','Rounded Mplus 1c',sans-serif;
+  background:linear-gradient(180deg,#0077b6 0%,#023e8a 40%,#03045e 100%);
+  display:flex; align-items:center; justify-content:center; }
+
+/* 泡アニメーション背景 */
+.bg-bubbles { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:0; overflow:hidden; }
+.bg-bubble { position:absolute; bottom:-80px; background:rgba(255,255,255,0.08);
+  border-radius:50%; animation:float-up linear infinite; }
+@keyframes float-up {
+  0% { transform:translateY(0) scale(1); opacity:0.6; }
+  100% { transform:translateY(-110vh) scale(0.3); opacity:0; }
+}
+
+/* 画面共通 */
+.screen { display:none; flex-direction:column; align-items:center; justify-content:center;
+  width:100%; max-width:420px; padding:1em; text-align:center; position:relative; z-index:1;
+  min-height:100vh; }
+.screen.active { display:flex; }
+#game-screen { justify-content:flex-start; padding-top:2em; }
+h1 { color:#fff; font-size:2em; margin-bottom:0.3em; text-shadow:2px 2px 6px rgba(0,0,0,0.4); }
+h2 { color:#fff; font-size:1.5em; margin-bottom:0.5em; text-shadow:1px 1px 4px rgba(0,0,0,0.3); }
+p.sub { color:rgba(255,255,255,0.8); font-size:0.95em; margin-bottom:1em; }
+
+/* ボタン */
+.btn { display:block; width:260px; margin:0.4em auto; padding:0.8em 1em; border:none; border-radius:14px;
+  font-size:1.15em; font-weight:bold; cursor:pointer; transition:transform 0.1s;
+  box-shadow:0 4px 12px rgba(0,0,0,0.25); }
+.btn:active { transform:scale(0.95); }
+.btn-primary { background:linear-gradient(135deg,#00b4d8,#0077b6); color:#fff; }
+.btn-mode { background:linear-gradient(135deg,#48cae4,#0096c7); color:#fff; }
+.btn-mode .mode-desc { display:block; font-size:0.7em; font-weight:normal; opacity:0.85; margin-top:2px; }
+.btn-back { background:rgba(255,255,255,0.15); color:#fff; width:auto; padding:0.5em 1.5em;
+  font-size:0.9em; border-radius:10px; }
+.btn-answer { width:80px; height:80px; border-radius:50%; font-size:1.8em; margin:0.3em;
+  background:linear-gradient(135deg,#fff,#e0f7fa); color:#0077b6; border:3px solid #00b4d8;
+  box-shadow:0 4px 10px rgba(0,0,0,0.2); }
+.btn-answer:active { transform:scale(0.9); }
+.btn-answer.correct { animation:pop-correct 0.5s ease; background:linear-gradient(135deg,#81c784,#43a047); color:#fff; border-color:#2e7d32; }
+.btn-answer.wrong { animation:shake 0.4s ease; background:linear-gradient(135deg,#ef9a9a,#e53935); color:#fff; border-color:#c62828; }
+@keyframes pop-correct { 0%{transform:scale(1)} 50%{transform:scale(1.3)} 100%{transform:scale(1)} }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+
+/* バブル表示エリア */
+.bubble-area { width:100%; height:260px; display:flex; align-items:center; justify-content:center;
+  margin:0.5em 0; position:relative; }
+.bubble-container { position:relative; }
+.bubble { position:relative; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(circle at 35% 30%, rgba(255,255,255,0.5), rgba(255,255,255,0.05) 60%, rgba(0,180,216,0.15));
+  border:2px solid rgba(255,255,255,0.3);
+  box-shadow:inset 0 0 30px rgba(255,255,255,0.15), 0 8px 32px rgba(0,0,0,0.2);
+  animation:bubble-float 3s ease-in-out infinite; transition:opacity 0.4s, transform 0.4s; }
+.bubble::after { content:''; position:absolute; top:15%; left:20%; width:25%; height:18%;
+  background:radial-gradient(ellipse, rgba(255,255,255,0.6), transparent); border-radius:50%;
+  transform:rotate(-20deg); }
+@keyframes bubble-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+.bubble.pop { animation:bubble-pop 0.4s ease forwards; }
+@keyframes bubble-pop { 0%{transform:scale(1);opacity:1} 100%{transform:scale(1.5);opacity:0} }
+.bubble.foggy .dot-area { filter:blur(12px); opacity:0.2; }
+
+/* ドット */
+.dot-area { width:100%; height:100%; position:absolute; top:0; left:0; transition:filter 0.3s, opacity 0.3s; }
+.dot { position:absolute; font-size:38px; transform:translate(-50%,-50%); text-shadow:1px 1px 2px rgba(0,0,0,0.2); }
+
+/* 2バブルレイアウト（どっちがおおい & あわせて） */
+.bubble-area.dual { gap:16px; }
+
+/* ステータス */
+.status-bar { display:flex; align-items:center; justify-content:space-between; width:100%;
+  max-width:320px; color:rgba(255,255,255,0.8); font-size:0.85em; margin-bottom:0.3em; }
+.stars { font-size:1.1em; letter-spacing:2px; }
+
+/* 回答エリア */
+.answer-area { display:flex; flex-wrap:wrap; justify-content:center; gap:0.3em; margin-top:0.5em; }
+
+/* 質問テキスト */
+.question { color:#fff; font-size:1.2em; font-weight:bold; margin:0.3em 0;
+  text-shadow:1px 1px 3px rgba(0,0,0,0.3); min-height:1.5em; }
+
+/* 結果画面 */
+.result-emoji { font-size:3em; margin:0.3em 0; }
+.result-msg { color:#fff; font-size:1.3em; font-weight:bold; margin:0.3em 0; }
+.result-detail { color:rgba(255,255,255,0.8); font-size:1em; margin-bottom:1em; }
+
+/* 水槽 */
+.aquarium { width:280px; height:180px; margin:0.5em auto; border-radius:20px;
+  background:linear-gradient(180deg,rgba(0,180,216,0.3),rgba(3,4,94,0.4));
+  border:3px solid rgba(255,255,255,0.2); position:relative; overflow:hidden; }
+.aquarium-fish { position:absolute; font-size:24px; animation:swim linear infinite; }
+@keyframes swim { 0%{transform:translateX(-30px)} 50%{transform:translateX(250px)} 100%{transform:translateX(-30px)} }
+.aquarium-label { color:rgba(255,255,255,0.8); font-size:0.85em; margin-top:0.3em; }
+
+/* トップへ戻る */
+.top-link { display:inline-block; margin-top:1em; color:#fff; opacity:0.6;
+  font-size:0.85em; text-decoration:none; }
+</style>
+</head>
+<body>
+
+<div class="bg-bubbles" id="bg-bubbles"></div>
+
+<!-- タイトル画面 -->
+<div class="screen active" id="title-screen">
+  <h1>かずのバブル</h1>
+  <p class="sub">バブルの なかの おさかなを<br>かぞえないで パッとみよう！</p>
+  <button class="btn btn-mode" onclick="selectMode('count')">
+    なんびき いた？
+    <span class="mode-desc">バブルの中の数をあてよう</span>
+  </button>
+  <button class="btn btn-mode" onclick="selectMode('compare')">
+    どっちが おおい？
+    <span class="mode-desc">多いほうをえらぼう</span>
+  </button>
+  <button class="btn btn-mode" onclick="selectMode('sum')">
+    あわせて いくつ？
+    <span class="mode-desc">2つのバブルをたそう</span>
+  </button>
+  <button class="btn btn-mode" onclick="selectMode('match')">
+    おなじ かずは どれ？
+    <span class="mode-desc">同じ数のバブルをみつけよう</span>
+  </button>
+  <div style="margin-top:0.8em">
+    <button class="btn btn-back" onclick="showAquarium()">わたしの すいそう</button>
+  </div>
+  <a href="../" class="top-link">← トップへもどる</a>
+</div>
+
+<!-- レベル選択画面 -->
+<div class="screen" id="level-screen">
+  <h2 id="level-title">レベルを えらぼう</h2>
+  <div id="level-buttons"></div>
+  <button class="btn btn-back" onclick="showScreen('title-screen')" style="margin-top:1em">もどる</button>
+</div>
+
+<!-- ゲーム画面 -->
+<div class="screen" id="game-screen">
+  <div class="status-bar">
+    <span id="progress">1/10</span>
+    <span class="stars" id="stars"></span>
+  </div>
+  <div class="question" id="question"></div>
+  <div class="bubble-area" id="bubble-area"></div>
+  <div class="question" id="question2"></div>
+  <div class="answer-area" id="answer-area"></div>
+</div>
+
+<!-- 結果画面 -->
+<div class="screen" id="result-screen">
+  <div class="result-emoji" id="result-emoji"></div>
+  <div class="result-msg" id="result-msg"></div>
+  <div class="result-detail" id="result-detail"></div>
+  <button class="btn btn-primary" onclick="retryLevel()">もういちど</button>
+  <button class="btn btn-back" onclick="showScreen('level-screen');setupLevels()" style="margin-top:0.5em">レベルせんたく</button>
+  <button class="btn btn-back" onclick="showScreen('title-screen')">タイトルへ</button>
+</div>
+
+<!-- 水槽画面 -->
+<div class="screen" id="aquarium-screen">
+  <h2>わたしの すいそう</h2>
+  <div class="aquarium" id="aquarium-box"></div>
+  <div class="aquarium-label" id="aquarium-label"></div>
+  <button class="btn btn-back" onclick="showScreen('title-screen')" style="margin-top:1em">もどる</button>
+</div>
+
+<script>
+// ====== 定数 ======
+const FISH_EMOJI = ['🐟','🐠','🐡','🦈','🐙','🦀','🦑','🐚','🦐','🐳','🐬','🦞','🪼','🐋'];
+const DOT_EMOJI_SETS = [
+  ['🐟'],['🐠'],['🐡'],['🦀'],['🐚'],
+  ['🐟','🐠'],['🐡','🦀'],['🐟','🐚'],
+];
+const TOTAL_Q = 10;
+
+// サイコロ型配置パターン (パーセント座標)
+const PATTERNS = {
+  1: [[50,50]],
+  2: [[33,50],[67,50]],
+  3: [[50,30],[30,65],[70,65]],
+  4: [[30,30],[70,30],[30,70],[70,70]],
+  5: [[30,30],[70,30],[50,50],[30,70],[70,70]],
+  6: [[30,25],[70,25],[30,50],[70,50],[30,75],[70,75]],
+  7: [[30,25],[70,25],[30,50],[50,50],[70,50],[30,75],[70,75]],
+  8: [[30,22],[70,22],[30,42],[70,42],[30,62],[70,62],[30,82],[70,82]],
+  9: [[25,25],[50,25],[75,25],[25,50],[50,50],[75,50],[25,75],[50,75],[75,75]],
+};
+
+// ランダム配置生成
+function randomPositions(n, size) {
+  const pos = [];
+  const margin = 20, minDist = 18;
+  for (let i = 0; i < n; i++) {
+    let tries = 0, x, y;
+    do {
+      x = margin + Math.random() * (100 - 2 * margin);
+      y = margin + Math.random() * (100 - 2 * margin);
+      tries++;
+    } while (tries < 50 && pos.some(p => Math.hypot(p[0]-x,p[1]-y) < minDist));
+    pos.push([x, y]);
+  }
+  return pos;
+}
+
+// レベル定義
+const LEVELS = {
+  count: [
+    { name:'★', desc:'1〜3びき', min:1, max:3, time:1500, pattern:'dice' },
+    { name:'★★', desc:'1〜4びき', min:1, max:4, time:1200, pattern:'dice' },
+    { name:'★★★', desc:'1〜5びき', min:1, max:5, time:1000, pattern:'dice' },
+    { name:'★★★★', desc:'1〜5 はやい', min:1, max:5, time:700, pattern:'random' },
+    { name:'★★★★★', desc:'1〜7 はやい', min:1, max:7, time:700, pattern:'random' },
+  ],
+  compare: [
+    { name:'★', desc:'1〜3びき', min:1, max:3, time:1500 },
+    { name:'★★', desc:'1〜5びき', min:1, max:5, time:1200 },
+    { name:'★★★', desc:'1〜6びき', min:1, max:6, time:900 },
+  ],
+  sum: [
+    { name:'★', desc:'あわせて2〜5', min:1, max:3, time:1500 },
+    { name:'★★', desc:'あわせて3〜7', min:1, max:4, time:1200 },
+    { name:'★★★', desc:'あわせて4〜8', min:2, max:4, time:1000 },
+  ],
+  match: [
+    { name:'★', desc:'1〜3びき', min:1, max:3, time:1500 },
+    { name:'★★', desc:'1〜5びき', min:1, max:5, time:1200 },
+    { name:'★★★', desc:'2〜6びき', min:2, max:6, time:1000 },
+  ],
+};
+
+// ====== 状態 ======
+let currentMode = '';
+let currentLevel = 0;
+let questionNum = 0;
+let correctCount = 0;
+let currentAnswer = null;
+let answerLocked = false;
+let collectedFish = JSON.parse(localStorage.getItem('bubble_fish') || '[]');
+
+// ====== AudioContext ======
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function playSound(freq, dur, type='sine') {
+  try {
+    const ctx = getAudio();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + dur);
+  } catch(e) {}
+}
+function playCorrect() { playSound(523,0.1); setTimeout(()=>playSound(659,0.1),100); setTimeout(()=>playSound(784,0.2),200); }
+function playWrong() { playSound(200,0.3,'triangle'); }
+function playPop() { playSound(800,0.15); setTimeout(()=>playSound(1200,0.1),50); }
+function playClear() { [0,150,300,450,600].forEach((d,i)=>setTimeout(()=>playSound(523*(1+i*0.15),0.2),d)); }
+
+// ====== 画面管理 ======
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ====== 背景バブル ======
+function initBgBubbles() {
+  const c = document.getElementById('bg-bubbles');
+  for (let i = 0; i < 12; i++) {
+    const b = document.createElement('div');
+    b.className = 'bg-bubble';
+    const size = 10 + Math.random() * 40;
+    b.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;animation-duration:${6+Math.random()*8}s;animation-delay:${Math.random()*6}s;`;
+    c.appendChild(b);
+  }
+}
+
+// ====== モード選択 ======
+function selectMode(mode) {
+  currentMode = mode;
+  setupLevels();
+  showScreen('level-screen');
+}
+
+function setupLevels() {
+  const labels = { count:'なんびき いた？', compare:'どっちが おおい？', sum:'あわせて いくつ？', match:'おなじ かずは どれ？' };
+  document.getElementById('level-title').textContent = labels[currentMode];
+  const container = document.getElementById('level-buttons');
+  container.innerHTML = '';
+  LEVELS[currentMode].forEach((lv, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-mode';
+    btn.innerHTML = `${lv.name}<span class="mode-desc">${lv.desc}（${(lv.time/1000).toFixed(1)}びょう）</span>`;
+    btn.onclick = () => startGame(i);
+    container.appendChild(btn);
+  });
+}
+
+// ====== ゲーム開始 ======
+function startGame(levelIdx) {
+  currentLevel = levelIdx;
+  questionNum = 0;
+  correctCount = 0;
+  showScreen('game-screen');
+  updateStars();
+  nextQuestion();
+}
+
+function retryLevel() { startGame(currentLevel); }
+
+// ====== 星表示 ======
+function updateStars() {
+  const el = document.getElementById('stars');
+  el.textContent = '★'.repeat(correctCount) + '☆'.repeat(Math.max(0, TOTAL_Q - correctCount));
+}
+
+// ====== 次の問題 ======
+function nextQuestion() {
+  if (questionNum >= TOTAL_Q) { showResult(); return; }
+  questionNum++;
+  document.getElementById('progress').textContent = `${questionNum}/${TOTAL_Q}`;
+  answerLocked = false;
+
+  switch (currentMode) {
+    case 'count': setupCount(); break;
+    case 'compare': setupCompare(); break;
+    case 'sum': setupSum(); break;
+    case 'match': setupMatch(); break;
+  }
+}
+
+// ====== ドット生成 ======
+function getPositions(n, pattern) {
+  if (pattern === 'random') return randomPositions(n);
+  return PATTERNS[n] || randomPositions(n);
+}
+
+function getEmojiSet() {
+  return DOT_EMOJI_SETS[Math.floor(Math.random() * DOT_EMOJI_SETS.length)];
+}
+
+function createDots(container, n, pattern, color) {
+  const dotArea = document.createElement('div');
+  dotArea.className = 'dot-area';
+  const positions = getPositions(n, pattern);
+  const emojis = getEmojiSet();
+  positions.forEach(([x, y]) => {
+    const dot = document.createElement('div');
+    dot.className = 'dot';
+    dot.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    dot.style.left = x + '%';
+    dot.style.top = y + '%';
+    if (color) dot.style.filter = `hue-rotate(${color}deg)`;
+    dotArea.appendChild(dot);
+  });
+  container.appendChild(dotArea);
+  return dotArea;
+}
+
+function createBubble(size) {
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.style.width = size + 'px';
+  bubble.style.height = size + 'px';
+  return bubble;
+}
+
+// ====== モード1: なんびき いた？ ======
+function setupCount() {
+  const lv = LEVELS.count[currentLevel];
+  const n = lv.min + Math.floor(Math.random() * (lv.max - lv.min + 1));
+  currentAnswer = n;
+
+  const area = document.getElementById('bubble-area');
+  area.className = 'bubble-area';
+  area.innerHTML = '';
+  const bubble = createBubble(200);
+  createDots(bubble, n, lv.pattern);
+  area.appendChild(bubble);
+
+  document.getElementById('question').textContent = 'よく みてね…';
+  document.getElementById('question2').textContent = '';
+  document.getElementById('answer-area').innerHTML = '';
+
+  setTimeout(() => {
+    bubble.classList.add('foggy');
+    document.getElementById('question').textContent = 'なんびき いた？';
+    showCountAnswers(n, lv.min, lv.max);
+  }, lv.time);
+}
+
+function showCountAnswers(correct, min, max) {
+  const area = document.getElementById('answer-area');
+  area.innerHTML = '';
+  let choices = new Set([correct]);
+  const numChoices = Math.min(3, max - min + 1);
+  let tries = 0;
+  while (choices.size < numChoices && tries < 30) {
+    const c = correct + (Math.random() < 0.5 ? 1 : -1) * (Math.floor(Math.random() * 2) + 1);
+    if (c >= 1 && c <= max && c !== correct) choices.add(c);
+    tries++;
+  }
+  [...choices].sort((a,b)=>a-b).forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-answer';
+    btn.textContent = c;
+    btn.onclick = () => checkAnswer(btn, c, correct);
+    area.appendChild(btn);
+  });
+}
+
+// ====== モード2: どっちが おおい？ ======
+function setupCompare() {
+  const lv = LEVELS.compare[currentLevel];
+  let a, b;
+  do {
+    a = lv.min + Math.floor(Math.random() * (lv.max - lv.min + 1));
+    b = lv.min + Math.floor(Math.random() * (lv.max - lv.min + 1));
+  } while (a === b);
+  currentAnswer = a > b ? 'left' : 'right';
+
+  const area = document.getElementById('bubble-area');
+  area.className = 'bubble-area dual';
+  area.innerHTML = '';
+
+  const bLeft = createBubble(140);
+  bLeft.id = 'bubble-left';
+  createDots(bLeft, a, 'dice');
+  area.appendChild(bLeft);
+
+  const bRight = createBubble(140);
+  bRight.id = 'bubble-right';
+  createDots(bRight, b, 'dice');
+  area.appendChild(bRight);
+
+  document.getElementById('question').textContent = 'よく みてね…';
+  document.getElementById('question2').textContent = '';
+  document.getElementById('answer-area').innerHTML = '';
+
+  setTimeout(() => {
+    bLeft.classList.add('foggy');
+    bRight.classList.add('foggy');
+    document.getElementById('question').textContent = 'どっちが おおい？';
+    showCompareAnswers();
+  }, lv.time);
+}
+
+function showCompareAnswers() {
+  const area = document.getElementById('answer-area');
+  area.innerHTML = '';
+  ['left', 'right'].forEach(side => {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-answer';
+    btn.textContent = side === 'left' ? '←' : '→';
+    btn.style.width = '120px';
+    btn.style.height = '60px';
+    btn.style.fontSize = '1.5em';
+    btn.style.borderRadius = '14px';
+    btn.onclick = () => checkAnswer(btn, side, currentAnswer);
+    area.appendChild(btn);
+  });
+}
+
+// ====== モード3: あわせて いくつ？ ======
+function setupSum() {
+  const lv = LEVELS.sum[currentLevel];
+  const a = lv.min + Math.floor(Math.random() * (lv.max - lv.min + 1));
+  const b = lv.min + Math.floor(Math.random() * (lv.max - lv.min + 1));
+  currentAnswer = a + b;
+
+  const area = document.getElementById('bubble-area');
+  area.className = 'bubble-area dual';
+  area.innerHTML = '';
+
+  const bLeft = createBubble(130);
+  createDots(bLeft, a, 'dice', 0);
+  area.appendChild(bLeft);
+
+  const plus = document.createElement('div');
+  plus.style.cssText = 'color:#fff;font-size:2em;font-weight:bold;margin:0 4px;text-shadow:1px 1px 3px rgba(0,0,0,0.3);';
+  plus.textContent = '+';
+  area.appendChild(plus);
+
+  const bRight = createBubble(130);
+  createDots(bRight, b, 'dice', 180);
+  area.appendChild(bRight);
+
+  document.getElementById('question').textContent = 'よく みてね…';
+  document.getElementById('question2').textContent = '';
+  document.getElementById('answer-area').innerHTML = '';
+
+  setTimeout(() => {
+    bLeft.classList.add('foggy');
+    bRight.classList.add('foggy');
+    document.getElementById('question').textContent = 'あわせて なんびき？';
+    showSumAnswers(currentAnswer, lv.min * 2, lv.max * 2);
+  }, lv.time);
+}
+
+function showSumAnswers(correct, min, max) {
+  const area = document.getElementById('answer-area');
+  area.innerHTML = '';
+  let choices = new Set([correct]);
+  while (choices.size < 4) {
+    const c = correct + (Math.random() < 0.5 ? 1 : -1) * (Math.floor(Math.random() * 2) + 1);
+    if (c >= 2 && c <= max + 2 && c !== correct) choices.add(c);
+  }
+  [...choices].sort((a,b)=>a-b).forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-answer';
+    btn.textContent = c;
+    btn.onclick = () => checkAnswer(btn, c, correct);
+    area.appendChild(btn);
+  });
+}
+
+// ====== モード4: おなじ かずは どれ？ ======
+function setupMatch() {
+  const lv = LEVELS.match[currentLevel];
+  const n = lv.min + Math.floor(Math.random() * (lv.max - lv.min + 1));
+  currentAnswer = n;
+
+  const area = document.getElementById('bubble-area');
+  area.className = 'bubble-area';
+  area.style.flexDirection = 'column';
+  area.innerHTML = '';
+
+  // 上段: 問題バブル
+  const topRow = document.createElement('div');
+  topRow.style.cssText = 'display:flex;justify-content:center;margin-bottom:12px;';
+  const topBubble = createBubble(120);
+  createDots(topBubble, n, 'dice');
+  topRow.appendChild(topBubble);
+  area.appendChild(topRow);
+
+  // 下段: 選択肢バブル
+  const botRow = document.createElement('div');
+  botRow.style.cssText = 'display:flex;justify-content:center;gap:10px;';
+
+  let choices = new Set([n]);
+  while (choices.size < 3) {
+    const c = Math.max(1, n + Math.floor(Math.random() * 5) - 2);
+    if (c >= 1 && c <= 9 && c !== n) choices.add(c);
+    if (choices.size < 3) {
+      const c2 = Math.max(1, n + (choices.size === 1 ? 1 : -1));
+      if (c2 >= 1 && c2 <= 9) choices.add(c2);
+    }
+  }
+
+  const choiceArr = [...choices].sort(() => Math.random() - 0.5);
+  choiceArr.forEach(c => {
+    const b = createBubble(95);
+    b.style.cursor = 'pointer';
+    createDots(b, c, 'random');
+    b.onclick = () => {
+      if (answerLocked) return;
+      checkMatchAnswer(b, c, n);
+    };
+    botRow.appendChild(b);
+  });
+  area.appendChild(botRow);
+
+  document.getElementById('question').textContent = 'よく みてね…';
+  document.getElementById('question2').textContent = '';
+  document.getElementById('answer-area').innerHTML = '';
+
+  setTimeout(() => {
+    topBubble.classList.add('foggy');
+    document.getElementById('question').textContent = 'おなじ かずは どれ？';
+  }, lv.time);
+}
+
+function checkMatchAnswer(bubble, selected, correct) {
+  if (answerLocked) return;
+  answerLocked = true;
+  if (selected === correct) {
+    playCorrect();
+    bubble.classList.add('pop');
+    correctCount++;
+    updateStars();
+    setTimeout(nextQuestion, 800);
+  } else {
+    playWrong();
+    bubble.style.borderColor = '#e53935';
+    bubble.style.boxShadow = '0 0 15px rgba(229,57,53,0.5)';
+    // 正解を見せる
+    const topBubble = document.querySelector('.bubble');
+    if (topBubble) topBubble.classList.remove('foggy');
+    setTimeout(() => { answerLocked = false; nextQuestion(); }, 1500);
+  }
+}
+
+// ====== 回答チェック ======
+function checkAnswer(btn, selected, correct) {
+  if (answerLocked) return;
+  answerLocked = true;
+
+  if (selected === correct) {
+    playCorrect();
+    btn.classList.add('correct');
+    correctCount++;
+    updateStars();
+
+    // バブルをポップ
+    document.querySelectorAll('.bubble').forEach(b => {
+      b.classList.remove('foggy');
+      setTimeout(() => b.classList.add('pop'), 200);
+    });
+    playPop();
+
+    // 魚コレクション
+    collectFish();
+
+    setTimeout(nextQuestion, 1000);
+  } else {
+    playWrong();
+    btn.classList.add('wrong');
+
+    // 正解を見せる（バブルの曇りを外す）
+    document.querySelectorAll('.bubble').forEach(b => b.classList.remove('foggy'));
+
+    let correctText = '';
+    if (currentMode === 'compare') {
+      correctText = correct === 'left' ? '← が おおいよ！' : '→ が おおいよ！';
+    } else {
+      correctText = `こたえは ${correct} だよ！`;
+    }
+    document.getElementById('question2').textContent = correctText;
+
+    setTimeout(() => {
+      document.getElementById('question2').textContent = '';
+      nextQuestion();
+    }, 2000);
+  }
+}
+
+// ====== 魚コレクション ======
+function collectFish() {
+  const fish = FISH_EMOJI[Math.floor(Math.random() * FISH_EMOJI.length)];
+  if (!collectedFish.includes(fish)) {
+    collectedFish.push(fish);
+    localStorage.setItem('bubble_fish', JSON.stringify(collectedFish));
+  }
+}
+
+// ====== 結果画面 ======
+function showResult() {
+  playClear();
+  const pct = correctCount / TOTAL_Q;
+  let emoji, msg;
+  if (pct >= 0.9) { emoji = '🎉'; msg = 'すごい！パーフェクト！'; }
+  else if (pct >= 0.7) { emoji = '😊'; msg = 'よく できたね！'; }
+  else if (pct >= 0.5) { emoji = '👍'; msg = 'がんばったね！'; }
+  else { emoji = '💪'; msg = 'もういちど チャレンジ！'; }
+
+  document.getElementById('result-emoji').textContent = emoji;
+  document.getElementById('result-msg').textContent = msg;
+  document.getElementById('result-detail').textContent = `${TOTAL_Q}もん中 ${correctCount}もん せいかい！`;
+  showScreen('result-screen');
+}
+
+// ====== 水槽 ======
+function showAquarium() {
+  const box = document.getElementById('aquarium-box');
+  box.innerHTML = '';
+  if (collectedFish.length === 0) {
+    box.innerHTML = '<div style="color:rgba(255,255,255,0.5);margin-top:70px;font-size:0.9em;">まだ おさかなが いないよ<br>ゲームで あつめよう！</div>';
+  } else {
+    collectedFish.forEach((fish, i) => {
+      const f = document.createElement('div');
+      f.className = 'aquarium-fish';
+      f.textContent = fish;
+      f.style.top = (15 + Math.random() * 60) + '%';
+      f.style.animationDuration = (4 + Math.random() * 4) + 's';
+      f.style.animationDelay = (Math.random() * 3) + 's';
+      box.appendChild(f);
+    });
+  }
+  document.getElementById('aquarium-label').textContent =
+    `${collectedFish.length} / ${FISH_EMOJI.length} しゅるい あつめたよ！`;
+  showScreen('aquarium-screen');
+}
+
+// ====== 初期化 ======
+initBgBubbles();
+
+// SW登録
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
