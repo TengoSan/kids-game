@@ -83,6 +83,11 @@ p.sub { color:rgba(255,255,255,0.8); font-size:0.95em; margin-bottom:1em; }
   max-width:320px; color:rgba(255,255,255,0.8); font-size:0.85em; margin-bottom:0.3em; }
 .stars { font-size:1.1em; letter-spacing:2px; }
 
+/* ゲーム中の戻るボタン */
+.btn-back-small { background:none; border:none; color:rgba(255,255,255,0.6); font-size:0.8em;
+  cursor:pointer; padding:0.2em 0.4em; }
+.btn-back-small:active { opacity:0.4; }
+
 /* もういちど みるボタン */
 .peek-btn { background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.8); border:1px solid rgba(255,255,255,0.3);
   border-radius:10px; padding:0.4em 1.2em; font-size:0.85em; cursor:pointer; margin-top:0.3em;
@@ -155,6 +160,7 @@ p.sub { color:rgba(255,255,255,0.8); font-size:0.95em; margin-bottom:1em; }
 <!-- ゲーム画面 -->
 <div class="screen" id="game-screen">
   <div class="status-bar">
+    <button class="btn-back-small" onclick="showScreen('title-screen')">← もどる</button>
     <span id="progress">1/10</span>
     <span class="stars" id="stars"></span>
   </div>
