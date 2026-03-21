@@ -151,6 +151,7 @@ p.sub { color:rgba(255,255,255,0.85); font-size:1em; margin-bottom:1.2em; line-h
   <p class="sub">ことばを みて おぼえよう！<br>いっしゅんで よめるかな？</p>
   <button class="btn btn-primary" onclick="showScreen('category-screen')">あそぶ</button>
   <button class="btn btn-back" onclick="showScreen('zukan-screen')">ことばずかん</button>
+  <button class="btn btn-back" onclick="location.href='../'">トップにもどる</button>
 </div>
 
 <!-- カテゴリ選択画面 -->
@@ -168,7 +169,7 @@ p.sub { color:rgba(255,255,255,0.85); font-size:1em; margin-bottom:1.2em; line-h
 <!-- レベル選択画面 -->
 <div class="screen" id="level-screen">
   <h2>レベルを えらぼう</h2>
-  <p class="sub">はやさが かわるよ！</p>
+  <p class="sub">はやさと ことばの むずかしさが かわるよ！</p>
   <div class="level-grid" id="level-grid"></div>
   <button class="btn btn-back" onclick="showScreen('category-screen')">もどる</button>
   <button class="btn btn-back" onclick="showScreen('title-screen')">トップへ</button>
@@ -219,39 +220,46 @@ p.sub { color:rgba(255,255,255,0.85); font-size:1em; margin-bottom:1.2em; line-h
 // ====== 単語データ ======
 const WORDS = {
   doubutsu: [
-    { word:'ねこ', emoji:'🐱' }, { word:'いぬ', emoji:'🐶' }, { word:'うさぎ', emoji:'🐰' },
-    { word:'くま', emoji:'🐻' }, { word:'ぞう', emoji:'🐘' }, { word:'きりん', emoji:'🦒' },
-    { word:'さる', emoji:'🐵' }, { word:'うま', emoji:'🐴' }, { word:'ひつじ', emoji:'🐑' },
-    { word:'ぶた', emoji:'🐷' }, { word:'とり', emoji:'🐦' }, { word:'かめ', emoji:'🐢' },
-    { word:'りす', emoji:'🐿️' }, { word:'ぺんぎん', emoji:'🐧' }, { word:'いるか', emoji:'🐬' },
-    { word:'くじら', emoji:'🐳' }, { word:'らいおん', emoji:'🦁' }, { word:'しか', emoji:'🦌' },
-    { word:'たぬき', emoji:'🦝' }, { word:'ふくろう', emoji:'🦉' },
+    { word:'ねこ', emoji:'🐱', lv:1 }, { word:'いぬ', emoji:'🐶', lv:1 }, { word:'くま', emoji:'🐻', lv:1 },
+    { word:'ぞう', emoji:'🐘', lv:1 }, { word:'さる', emoji:'🐵', lv:1 }, { word:'うま', emoji:'🐴', lv:1 },
+    { word:'とり', emoji:'🐦', lv:1 }, { word:'かめ', emoji:'🐢', lv:1 }, { word:'ぶた', emoji:'🐷', lv:1 },
+    { word:'しか', emoji:'🦌', lv:1 }, { word:'りす', emoji:'🐿️', lv:1 },
+    { word:'うさぎ', emoji:'🐰', lv:2 }, { word:'きりん', emoji:'🦒', lv:2 }, { word:'ひつじ', emoji:'🐑', lv:2 },
+    { word:'いるか', emoji:'🐬', lv:2 }, { word:'くじら', emoji:'🐳', lv:2 }, { word:'たぬき', emoji:'🦝', lv:2 },
+    { word:'ぺんぎん', emoji:'🐧', lv:3 }, { word:'らいおん', emoji:'🦁', lv:3 }, { word:'ふくろう', emoji:'🦉', lv:3 },
+    { word:'かぶとむし', emoji:'🪲', lv:3 }, { word:'だちょう', emoji:'🐦', lv:3 }, { word:'おおかみ', emoji:'🐺', lv:3 },
+    { word:'かたつむり', emoji:'🐌', lv:3 }, { word:'こうもり', emoji:'🦇', lv:3 },
   ],
   tabemono: [
-    { word:'りんご', emoji:'🍎' }, { word:'ばなな', emoji:'🍌' }, { word:'いちご', emoji:'🍓' },
-    { word:'みかん', emoji:'🍊' }, { word:'ぶどう', emoji:'🍇' }, { word:'すいか', emoji:'🍉' },
-    { word:'もも', emoji:'🍑' }, { word:'さくらんぼ', emoji:'🍒' }, { word:'ぱん', emoji:'🍞' },
-    { word:'おにぎり', emoji:'🍙' }, { word:'らーめん', emoji:'🍜' }, { word:'すし', emoji:'🍣' },
-    { word:'けーき', emoji:'🎂' }, { word:'ぷりん', emoji:'🍮' }, { word:'あいす', emoji:'🍦' },
-    { word:'ぴざ', emoji:'🍕' }, { word:'かれー', emoji:'🍛' }, { word:'どーなつ', emoji:'🍩' },
-    { word:'たまご', emoji:'🥚' }, { word:'にんじん', emoji:'🥕' },
+    { word:'ぱん', emoji:'🍞', lv:1 }, { word:'すし', emoji:'🍣', lv:1 }, { word:'もも', emoji:'🍑', lv:1 },
+    { word:'ぴざ', emoji:'🍕', lv:1 }, { word:'かに', emoji:'🦀', lv:1 }, { word:'なし', emoji:'🍐', lv:1 },
+    { word:'りんご', emoji:'🍎', lv:2 }, { word:'ばなな', emoji:'🍌', lv:2 }, { word:'いちご', emoji:'🍓', lv:2 },
+    { word:'みかん', emoji:'🍊', lv:2 }, { word:'ぶどう', emoji:'🍇', lv:2 }, { word:'すいか', emoji:'🍉', lv:2 },
+    { word:'たまご', emoji:'🥚', lv:2 }, { word:'かれー', emoji:'🍛', lv:2 }, { word:'あいす', emoji:'🍦', lv:2 },
+    { word:'ぷりん', emoji:'🍮', lv:2 },
+    { word:'おにぎり', emoji:'🍙', lv:3 }, { word:'らーめん', emoji:'🍜', lv:3 }, { word:'けーき', emoji:'🎂', lv:3 },
+    { word:'どーなつ', emoji:'🍩', lv:3 }, { word:'にんじん', emoji:'🥕', lv:3 }, { word:'さくらんぼ', emoji:'🍒', lv:3 },
+    { word:'ほっとけーき', emoji:'🥞', lv:3 }, { word:'はんばーがー', emoji:'🍔', lv:3 },
   ],
   norimono: [
-    { word:'くるま', emoji:'🚗' }, { word:'でんしゃ', emoji:'🚃' }, { word:'ひこうき', emoji:'✈️' },
-    { word:'ばす', emoji:'🚌' }, { word:'ふね', emoji:'🚢' }, { word:'じてんしゃ', emoji:'🚲' },
-    { word:'しょうぼうしゃ', emoji:'🚒' }, { word:'きゅうきゅうしゃ', emoji:'🚑' },
-    { word:'ぱとかー', emoji:'🚓' }, { word:'たくしー', emoji:'🚕' },
-    { word:'しんかんせん', emoji:'🚅' }, { word:'ろけっと', emoji:'🚀' },
-    { word:'へりこぷたー', emoji:'🚁' }, { word:'よっと', emoji:'⛵' },
-    { word:'とらっく', emoji:'🚚' }, { word:'もーたーばいく', emoji:'🏍️' },
+    { word:'ばす', emoji:'🚌', lv:1 }, { word:'ふね', emoji:'🚢', lv:1 },
+    { word:'くるま', emoji:'🚗', lv:2 }, { word:'よっと', emoji:'⛵', lv:2 },
+    { word:'でんしゃ', emoji:'🚃', lv:2 }, { word:'ひこうき', emoji:'✈️', lv:2 },
+    { word:'ぱとかー', emoji:'🚓', lv:2 }, { word:'たくしー', emoji:'🚕', lv:2 },
+    { word:'とらっく', emoji:'🚚', lv:2 }, { word:'ろけっと', emoji:'🚀', lv:2 },
+    { word:'じてんしゃ', emoji:'🚲', lv:3 }, { word:'しんかんせん', emoji:'🚅', lv:3 },
+    { word:'しょうぼうしゃ', emoji:'🚒', lv:3 }, { word:'きゅうきゅうしゃ', emoji:'🚑', lv:3 },
+    { word:'へりこぷたー', emoji:'🚁', lv:3 }, { word:'もーたーばいく', emoji:'🏍️', lv:3 },
   ],
   shizen: [
-    { word:'はな', emoji:'🌸' }, { word:'やま', emoji:'⛰️' }, { word:'うみ', emoji:'🌊' },
-    { word:'そら', emoji:'☁️' }, { word:'ほし', emoji:'⭐' }, { word:'つき', emoji:'🌙' },
-    { word:'たいよう', emoji:'☀️' }, { word:'あめ', emoji:'🌧️' }, { word:'ゆき', emoji:'❄️' },
-    { word:'にじ', emoji:'🌈' }, { word:'かぜ', emoji:'🍃' }, { word:'かわ', emoji:'🏞️' },
-    { word:'もり', emoji:'🌲' }, { word:'ひまわり', emoji:'🌻' }, { word:'さくら', emoji:'🌸' },
-    { word:'ちょうちょ', emoji:'🦋' }, { word:'かぶとむし', emoji:'🪲' }, { word:'ほたる', emoji:'✨' },
+    { word:'はな', emoji:'🌸', lv:1 }, { word:'やま', emoji:'⛰️', lv:1 }, { word:'うみ', emoji:'🌊', lv:1 },
+    { word:'そら', emoji:'☁️', lv:1 }, { word:'ほし', emoji:'⭐', lv:1 }, { word:'つき', emoji:'🌙', lv:1 },
+    { word:'あめ', emoji:'🌧️', lv:1 }, { word:'ゆき', emoji:'❄️', lv:1 }, { word:'にじ', emoji:'🌈', lv:1 },
+    { word:'かぜ', emoji:'🍃', lv:1 }, { word:'かわ', emoji:'🏞️', lv:1 }, { word:'もり', emoji:'🌲', lv:1 },
+    { word:'さくら', emoji:'🌸', lv:2 }, { word:'たいよう', emoji:'☀️', lv:2 },
+    { word:'ひまわり', emoji:'🌻', lv:3 }, { word:'ちょうちょ', emoji:'🦋', lv:3 },
+    { word:'かぶとむし', emoji:'🪲', lv:3 }, { word:'ほたる', emoji:'✨', lv:3 },
+    { word:'あさがお', emoji:'🌺', lv:3 }, { word:'たんぽぽ', emoji:'🌼', lv:3 },
   ],
 };
 
@@ -266,11 +274,19 @@ let currentAnswer = null;
 let isAnswering = false;
 let roundWords = [];
 
-// フラッシュ時間（ミリ秒）- レベルで変化
-function getFlashTime() {
-  const times = [1200, 1000, 800, 650, 500, 400, 350, 300];
-  return times[Math.min(currentLevel - 1, times.length - 1)];
-}
+// レベル設定: flashTime=表示時間(ms), maxWordLv=単語難易度上限(1-3), choices=選択肢数
+const LEVELS = [
+  { flashTime:1200, maxWordLv:1, choices:3 }, // Lv1: ゆっくり＋かんたん
+  { flashTime:1000, maxWordLv:1, choices:3 }, // Lv2: ふつう＋かんたん
+  { flashTime:900,  maxWordLv:2, choices:3 }, // Lv3: ふつう＋ふつう
+  { flashTime:750,  maxWordLv:2, choices:3 }, // Lv4: ちょい速＋ふつう
+  { flashTime:600,  maxWordLv:2, choices:4 }, // Lv5: はやい＋ふつう
+  { flashTime:500,  maxWordLv:3, choices:4 }, // Lv6: はやい＋むずかしい
+  { flashTime:400,  maxWordLv:3, choices:4 }, // Lv7: げきはや＋むずかしい
+  { flashTime:300,  maxWordLv:3, choices:4 }, // Lv8: しゅんかん＋むずかしい
+];
+function getLevelConfig() { return LEVELS[Math.min(currentLevel - 1, LEVELS.length - 1)]; }
+function getFlashTime() { return getLevelConfig().flashTime; }
 
 // ====== 音声 ======
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -338,12 +354,13 @@ function showLevelSelect(category) {
   const unlockedLevel = saved.level || 1;
   const grid = document.getElementById('level-grid');
   grid.innerHTML = '';
-  const speedLabels = ['ゆっくり','ふつう','ちょい速','はやい','もっと速','すごく速','げきはや','しゅんかん'];
+  const speedLabels = ['ゆっくり','ふつう','ふつう','ちょい速','はやい','はやい','げきはや','しゅんかん'];
+  const diffLabels = ['かんたん','かんたん','ふつう','ふつう','ふつう','むずい','むずい','むずい'];
   for (let i = 1; i <= 8; i++) {
     const btn = document.createElement('button');
     const locked = i > unlockedLevel;
     btn.className = 'level-btn' + (locked ? ' locked' : '');
-    btn.innerHTML = `<span class="level-num">${locked ? '🔒' : i}</span><span class="level-speed">${locked ? '？？' : speedLabels[i-1]}</span>`;
+    btn.innerHTML = `<span class="level-num">${locked ? '🔒' : i}</span><span class="level-speed">${locked ? '？？' : speedLabels[i-1] + '・' + diffLabels[i-1]}</span>`;
     if (!locked) btn.addEventListener('click', () => startGame(currentCategory, i));
     grid.appendChild(btn);
   }
@@ -360,26 +377,18 @@ function startGame(category, level) {
 
   currentLevel = level || 1;
 
-  // 出題する単語を準備
-  let pool = [];
+  // 出題する単語を準備（レベルの単語難易度に合わせてフィルタ）
+  const lvConfig = getLevelConfig();
+  let allPool = [];
   if (category === 'mix') {
-    Object.values(WORDS).forEach(ws => pool.push(...ws));
+    Object.values(WORDS).forEach(ws => allPool.push(...ws));
   } else {
-    pool = [...WORDS[category]];
+    allPool = [...WORDS[category]];
   }
-  // レベルに応じて短い/長い単語をフィルタ
-  if (currentLevel <= 2) {
-    pool = pool.filter(w => w.word.length <= 3);
-  } else if (currentLevel <= 4) {
-    pool = pool.filter(w => w.word.length <= 4);
-  }
+  // maxWordLv以下の単語のみ使う
+  let pool = allPool.filter(w => (w.lv || 1) <= lvConfig.maxWordLv);
   if (pool.length < 4) {
-    // フォールバック
-    if (category === 'mix') {
-      Object.values(WORDS).forEach(ws => pool.push(...ws));
-    } else {
-      pool = [...WORDS[category]];
-    }
+    pool = allPool; // フォールバック
   }
 
   // シャッフルして10問選ぶ
@@ -442,6 +451,8 @@ function showChoices(correctWord) {
   choicesEl.innerHTML = '';
 
   // 不正解の選択肢を用意
+  const lvConfig = getLevelConfig();
+  const numDistractors = lvConfig.choices - 1;
   let pool = [];
   if (currentCategory === 'mix') {
     Object.values(WORDS).forEach(ws => pool.push(...ws));
@@ -454,9 +465,9 @@ function showChoices(correctWord) {
   shuffle(sameLenPool);
   shuffle(otherPool);
 
-  let distractors = sameLenPool.slice(0, 2);
-  if (distractors.length < 2) {
-    distractors = distractors.concat(otherPool.slice(0, 2 - distractors.length));
+  let distractors = sameLenPool.slice(0, numDistractors);
+  if (distractors.length < numDistractors) {
+    distractors = distractors.concat(otherPool.slice(0, numDistractors - distractors.length));
   }
 
   let options = [correctWord, ...distractors];
