@@ -540,6 +540,10 @@
     <button class="mode-btn realtime" onclick="startGame('realtime')">
       いまの じかん
     </button>
+    <button class="mode-btn read" onclick="testSound()" id="test-sound-btn" style="font-size:1.2rem; min-width:200px; margin-top:0.5rem;">
+      🔊 おとのテスト
+    </button>
+    <div id="sound-debug" style="color:#fff; font-size:0.9rem; margin-top:0.5rem; opacity:0.8;"></div>
   </div>
   <a href="../" style="display:inline-block;margin-top:1.2em;color:#fff;opacity:0.7;font-size:0.9em;text-decoration:none;">← トップへもどる</a>
 </div>
@@ -901,6 +905,7 @@ function startGame(mode) {
     realtimeTimer = null;
   }
 
+  sfxStart();
   document.getElementById('start-screen').style.display = 'none';
   document.getElementById('result-screen').style.display = 'none';
   document.getElementById('game-screen').style.display = 'block';
@@ -993,6 +998,7 @@ function nextQuestion() {
 
 // 時針を調整
 function adjustHour(delta) {
+  sfxTick();
   setHour += delta;
   if (setHour > 12) setHour = 1;
   if (setHour < 1) setHour = 12;
@@ -1001,6 +1007,7 @@ function adjustHour(delta) {
 
 // 分針を調整
 function adjustMinute(delta) {
+  sfxTick();
   setMinute += delta;
   if (setMinute >= 60) {
     setMinute = 0;
@@ -1025,9 +1032,11 @@ function checkSetAnswer() {
   if (isCorrect) {
     score++;
     streak++;
+    if (streak >= 3) sfxStreak(); else sfxCorrect();
     showFeedback(true);
   } else {
     streak = 0;
+    sfxWrong();
     showFeedback(false);
     // 正解を表示
     drawClock(currentHour, currentMinute);
@@ -1051,10 +1060,12 @@ function checkAnswer(btn, choice) {
     btn.classList.add('correct');
     score++;
     streak++;
+    if (streak >= 3) sfxStreak(); else sfxCorrect();
     showFeedback(true);
   } else {
     btn.classList.add('wrong');
     streak = 0;
+    sfxWrong();
     showFeedback(false);
 
     // 正解のボタンを光らせる
@@ -1118,18 +1129,22 @@ function showResult() {
   if (pct === 100) {
     starCount = 3;
     title = 'かんぺき！ すばらしい！';
+    sfxFanfare();
     spawnConfetti();
     setTimeout(spawnConfetti, 500);
   } else if (pct >= 70) {
     starCount = 2;
     title = 'よく できました！';
+    sfxFanfare();
     spawnConfetti();
   } else if (pct >= 40) {
     starCount = 1;
     title = 'がんばったね！';
+    sfxCorrect();
   } else {
     starCount = 0;
     title = 'もういちど ちょうせん しよう！';
+    sfxSad();
   }
 
   document.getElementById('result-stars').textContent =
@@ -1221,12 +1236,14 @@ function onDragMove(e) {
         if (setHour < 1) setHour = 12;
       }
     }
+    if (setMinute !== mins) sfxTick();
     prevDragMinute = mins;
     setMinute = mins;
   } else {
     // 時間にスナップ
     let hrs = Math.round(degrees / 30);
     if (hrs <= 0 || hrs > 12) hrs = 12;
+    if (setHour !== hrs) sfxTick();
     setHour = hrs;
   }
 
@@ -1291,6 +1308,108 @@ function goBack() {
   document.getElementById('game-screen').style.display = 'none';
   document.getElementById('result-screen').style.display = 'none';
   document.getElementById('start-screen').style.display = 'block';
+}
+
+// === 効果音（Web Audio API） ===
+let audioCtx = null;
+
+function playTone(freq, duration, type, vol, delay) {
+  // AudioContextがなければユーザー操作内で生成
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const t = audioCtx.currentTime + (delay || 0);
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type || 'sine';
+  osc.frequency.setValueAtTime(freq, t);
+  gain.gain.setValueAtTime(vol || 0.3, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(t);
+  osc.stop(t + duration);
+}
+
+// ピンポン！（正解）
+function sfxCorrect() {
+  playTone(880, 0.15, 'sine', 0.25);
+  playTone(1108, 0.25, 'sine', 0.25, 0.12);
+}
+
+// すごい！（連続正解 3+）
+function sfxStreak() {
+  playTone(523, 0.12, 'sine', 0.2);
+  playTone(659, 0.12, 'sine', 0.2, 0.1);
+  playTone(784, 0.12, 'sine', 0.2, 0.2);
+  playTone(1047, 0.3, 'sine', 0.25, 0.3);
+}
+
+// ブブー（不正解）
+function sfxWrong() {
+  playTone(200, 0.15, 'square', 0.15);
+  playTone(180, 0.3, 'square', 0.12, 0.12);
+}
+
+// ボタンタップ
+function sfxTap() {
+  playTone(600, 0.06, 'sine', 0.1);
+}
+
+// 針を動かす音
+function sfxTick() {
+  playTone(1200, 0.03, 'sine', 0.08);
+}
+
+// ゲーム開始
+function sfxStart() {
+  playTone(440, 0.1, 'sine', 0.15);
+  playTone(554, 0.1, 'sine', 0.15, 0.08);
+  playTone(659, 0.1, 'sine', 0.15, 0.16);
+  playTone(880, 0.25, 'sine', 0.2, 0.24);
+}
+
+// ファンファーレ（結果画面）
+function sfxFanfare() {
+  playTone(523, 0.15, 'sine', 0.2);
+  playTone(659, 0.15, 'sine', 0.2, 0.15);
+  playTone(784, 0.15, 'sine', 0.2, 0.3);
+  playTone(1047, 0.15, 'sine', 0.2, 0.45);
+  playTone(784, 0.1, 'sine', 0.15, 0.6);
+  playTone(1047, 0.4, 'sine', 0.25, 0.7);
+}
+
+// 残念（結果画面 低スコア）
+function sfxSad() {
+  playTone(392, 0.2, 'sine', 0.15);
+  playTone(349, 0.2, 'sine', 0.15, 0.2);
+  playTone(330, 0.2, 'sine', 0.15, 0.4);
+  playTone(294, 0.4, 'sine', 0.15, 0.6);
+}
+
+// おとのテスト
+function testSound() {
+  var dbg = document.getElementById('sound-debug');
+  try {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    // 大きめの音でテスト
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 440;
+    gain.gain.value = 1.0;
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.5);
+    dbg.textContent = 'AudioContext: ' + audioCtx.state + ' / sampleRate: ' + audioCtx.sampleRate;
+  } catch(e) {
+    dbg.textContent = 'エラー: ' + e.message;
+  }
 }
 
 // Service Worker 登録（オフライン対応）

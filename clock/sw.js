@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tokei-game-v4';
+const CACHE_NAME = 'tokei-game-v8';
 const ASSETS = [
   './',
   './index.html',
@@ -25,9 +25,13 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// オフラインでもキャッシュから応答
+// ネットワーク優先、失敗時にキャッシュ
 self.addEventListener('fetch', event => {
   event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request))
+    fetch(event.request).then(response => {
+      const clone = response.clone();
+      caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+      return response;
+    }).catch(() => caches.match(event.request))
   );
 });
