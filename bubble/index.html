@@ -83,6 +83,13 @@ p.sub { color:rgba(255,255,255,0.8); font-size:0.95em; margin-bottom:1em; }
   max-width:320px; color:rgba(255,255,255,0.8); font-size:0.85em; margin-bottom:0.3em; }
 .stars { font-size:1.1em; letter-spacing:2px; }
 
+/* もういちど みるボタン */
+.peek-btn { background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.8); border:1px solid rgba(255,255,255,0.3);
+  border-radius:10px; padding:0.4em 1.2em; font-size:0.85em; cursor:pointer; margin-top:0.3em;
+  transition:opacity 0.2s; }
+.peek-btn:active { transform:scale(0.95); }
+.peek-btn:disabled { opacity:0.3; cursor:default; }
+
 /* 回答エリア */
 .answer-area { display:flex; flex-wrap:wrap; justify-content:center; gap:0.3em; margin-top:0.5em; }
 
@@ -247,6 +254,7 @@ let correctCount = 0;
 let currentAnswer = null;
 let answerLocked = false;
 let collectedFish = JSON.parse(localStorage.getItem('bubble_fish') || '[]');
+let usedPeek = false; // この問題で「もういちど みる」を使ったか
 
 // ====== AudioContext ======
 let audioCtx = null;
@@ -288,6 +296,39 @@ function initBgBubbles() {
     b.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;animation-duration:${6+Math.random()*8}s;animation-delay:${Math.random()*6}s;`;
     c.appendChild(b);
   }
+}
+
+// ====== もういちど みる ======
+function addPeekButton() {
+  const area = document.getElementById('answer-area');
+  const btn = document.createElement('button');
+  btn.className = 'peek-btn';
+  btn.id = 'peek-btn';
+  btn.textContent = 'もういちど みる 👀';
+  btn.onclick = () => peekBubbles(btn);
+  // 回答ボタンの後に改行+ボタンを追加
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'width:100%;text-align:center;margin-top:0.3em;';
+  wrapper.appendChild(btn);
+  area.appendChild(wrapper);
+}
+
+function peekBubbles(btn) {
+  if (answerLocked) return;
+  usedPeek = true;
+  btn.disabled = true;
+  btn.textContent = 'みてるよ…';
+
+  // バブルの曇りを外す
+  document.querySelectorAll('.bubble').forEach(b => b.classList.remove('foggy'));
+
+  // レベルの表示時間と同じだけ見せて再び曇らせる
+  const lv = LEVELS[currentMode][currentLevel];
+  const peekTime = lv.time + 300; // 少し長めに見せる
+  setTimeout(() => {
+    document.querySelectorAll('.bubble').forEach(b => b.classList.add('foggy'));
+    btn.textContent = 'つかったよ';
+  }, peekTime);
 }
 
 // ====== モード選択 ======
@@ -336,6 +377,7 @@ function nextQuestion() {
   document.getElementById('progress').textContent = `${questionNum}/${TOTAL_Q}`;
   answerLocked = false;
 
+  usedPeek = false;
   switch (currentMode) {
     case 'count': setupCount(); break;
     case 'compare': setupCompare(); break;
@@ -401,6 +443,7 @@ function setupCount() {
     bubble.classList.add('foggy');
     document.getElementById('question').textContent = 'なんびき いた？';
     showCountAnswers(n, lv.min, lv.max);
+    addPeekButton();
   }, lv.time);
 }
 
@@ -457,6 +500,7 @@ function setupCompare() {
     bRight.classList.add('foggy');
     document.getElementById('question').textContent = 'どっちが おおい？';
     showCompareAnswers();
+    addPeekButton();
   }, lv.time);
 }
 
@@ -509,6 +553,7 @@ function setupSum() {
     bRight.classList.add('foggy');
     document.getElementById('question').textContent = 'あわせて なんびき？';
     showSumAnswers(currentAnswer, lv.min * 2, lv.max * 2);
+    addPeekButton();
   }, lv.time);
 }
 
@@ -582,6 +627,7 @@ function setupMatch() {
   setTimeout(() => {
     topBubble.classList.add('foggy');
     document.getElementById('question').textContent = 'おなじ かずは どれ？';
+    addPeekButton();
   }, lv.time);
 }
 
@@ -591,7 +637,7 @@ function checkMatchAnswer(bubble, selected, correct) {
   if (selected === correct) {
     playCorrect();
     bubble.classList.add('pop');
-    correctCount++;
+    if (!usedPeek) correctCount++;
     updateStars();
     setTimeout(nextQuestion, 800);
   } else {
@@ -613,7 +659,7 @@ function checkAnswer(btn, selected, correct) {
   if (selected === correct) {
     playCorrect();
     btn.classList.add('correct');
-    correctCount++;
+    if (!usedPeek) correctCount++;
     updateStars();
 
     // バブルをポップ
