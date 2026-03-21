@@ -1,4 +1,4 @@
-const CACHE = 'kotoba-flash-v1';
+const CACHE = 'kotoba-flash-v2';
 const ASSETS = ['./', './index.html'];
 
 self.addEventListener('install', e => {

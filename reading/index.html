@@ -48,6 +48,17 @@ p.sub { color:rgba(255,255,255,0.85); font-size:1em; margin-bottom:1.2em; line-h
 .btn-back { background:rgba(255,255,255,0.2); color:#fff; width:auto; padding:0.6em 1.8em;
   font-size:0.95em; border-radius:12px; margin-top:1em; }
 
+/* レベル選択 */
+.level-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:0.6em; width:100%;
+  max-width:340px; margin:0.8em auto; }
+.level-btn { padding:0.8em 0.4em; border:3px solid rgba(255,255,255,0.3); border-radius:14px;
+  background:rgba(255,255,255,0.12); color:#fff; font-size:1.1em; font-weight:bold;
+  cursor:pointer; transition:all 0.15s; font-family:inherit; backdrop-filter:blur(4px); }
+.level-btn:active { transform:scale(0.95); }
+.level-btn.locked { opacity:0.35; pointer-events:none; }
+.level-btn .level-num { font-size:1.4em; display:block; }
+.level-btn .level-speed { font-size:0.65em; color:rgba(255,255,255,0.7); display:block; margin-top:0.15em; }
+
 /* ゲーム画面 */
 .game-header { width:100%; display:flex; justify-content:space-between; align-items:center;
   padding:0 0.5em; margin-bottom:1em; }
@@ -146,12 +157,20 @@ p.sub { color:rgba(255,255,255,0.85); font-size:1em; margin-bottom:1.2em; line-h
 <div class="screen" id="category-screen">
   <h2>テーマを えらぼう</h2>
   <p class="sub">すきな テーマを タッチ！</p>
-  <button class="btn btn-category" onclick="startGame('doubutsu')"><span class="emoji">🐾</span>どうぶつ</button>
-  <button class="btn btn-category" onclick="startGame('tabemono')"><span class="emoji">🍎</span>たべもの</button>
-  <button class="btn btn-category" onclick="startGame('norimono')"><span class="emoji">🚗</span>のりもの</button>
-  <button class="btn btn-category" onclick="startGame('shizen')"><span class="emoji">🌸</span>しぜん</button>
-  <button class="btn btn-category" onclick="startGame('mix')"><span class="emoji">🌈</span>ミックス</button>
+  <button class="btn btn-category" onclick="showLevelSelect('doubutsu')"><span class="emoji">🐾</span>どうぶつ</button>
+  <button class="btn btn-category" onclick="showLevelSelect('tabemono')"><span class="emoji">🍎</span>たべもの</button>
+  <button class="btn btn-category" onclick="showLevelSelect('norimono')"><span class="emoji">🚗</span>のりもの</button>
+  <button class="btn btn-category" onclick="showLevelSelect('shizen')"><span class="emoji">🌸</span>しぜん</button>
+  <button class="btn btn-category" onclick="showLevelSelect('mix')"><span class="emoji">🌈</span>ミックス</button>
   <button class="btn btn-back" onclick="showScreen('title-screen')">もどる</button>
+</div>
+
+<!-- レベル選択画面 -->
+<div class="screen" id="level-screen">
+  <h2>レベルを えらぼう</h2>
+  <p class="sub">はやさが かわるよ！</p>
+  <div class="level-grid" id="level-grid"></div>
+  <button class="btn btn-back" onclick="showScreen('category-screen')">もどる</button>
 </div>
 
 <!-- ゲーム画面 -->
@@ -179,7 +198,8 @@ p.sub { color:rgba(255,255,255,0.85); font-size:1em; margin-bottom:1.2em; line-h
   <div class="result-detail" id="result-detail"></div>
   <div class="result-stars" id="result-stars"></div>
   <div id="new-record-display"></div>
-  <button class="btn btn-primary" onclick="startGame(currentCategory)">もういちど</button>
+  <button class="btn btn-primary" onclick="startGame(currentCategory, currentLevel)">もういちど</button>
+  <button class="btn btn-back" onclick="showLevelSelect(currentCategory)">レベルをかえる</button>
   <button class="btn btn-back" onclick="showScreen('category-screen')">テーマをかえる</button>
   <button class="btn btn-back" onclick="showScreen('title-screen')">タイトルへ</button>
 </div>
@@ -310,17 +330,34 @@ function showScreen(id) {
   if (id === 'zukan-screen') renderZukan();
 }
 
+// ====== レベル選択画面 ======
+function showLevelSelect(category) {
+  currentCategory = category;
+  const saved = loadProgress();
+  const unlockedLevel = saved.level || 1;
+  const grid = document.getElementById('level-grid');
+  grid.innerHTML = '';
+  const speedLabels = ['ゆっくり','ふつう','ちょい速','はやい','もっと速','すごく速','げきはや','しゅんかん'];
+  for (let i = 1; i <= 8; i++) {
+    const btn = document.createElement('button');
+    const locked = i > unlockedLevel;
+    btn.className = 'level-btn' + (locked ? ' locked' : '');
+    btn.innerHTML = `<span class="level-num">${locked ? '🔒' : i}</span><span class="level-speed">${locked ? '？？' : speedLabels[i-1]}</span>`;
+    if (!locked) btn.addEventListener('click', () => startGame(currentCategory, i));
+    grid.appendChild(btn);
+  }
+  showScreen('level-screen');
+}
+
 // ====== ゲーム開始 ======
-function startGame(category) {
+function startGame(category, level) {
   ensureAudio();
   currentCategory = category;
   currentQuestion = 0;
   score = 0;
   correctCount = 0;
 
-  // レベル判定（ローカルストレージの成績に基づく）
-  const saved = loadProgress();
-  currentLevel = saved.level || 1;
+  currentLevel = level || 1;
 
   // 出題する単語を準備
   let pool = [];
