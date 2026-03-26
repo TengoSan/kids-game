@@ -1,0 +1,11 @@
+{
+  "name": "よんでみよう！ ひらがな・カタカナ 単語あそび",
+  "short_name": "よんでみよう",
+  "description": "ひらがな・カタカナの単語をたのしくおぼえよう！",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#FFF9F2",
+  "theme_color": "#FF7F42",
+  "orientation": "portrait",
+  "icons": []
+}

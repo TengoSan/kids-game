@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#FF7F42">
+  <title>よんでみよう！</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Hiragino Kaku Gothic ProN','Meiryo',sans-serif; min-height:100vh; background:linear-gradient(160deg,#FFF9F2,#FFF0E8); }
+    button { font-family:inherit; }
+    input { font-family:inherit; }
+    #app { min-height:100vh; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+// ── Default Words ──
+var DEFAULT_WORDS = [
+  // どうぶつ
+  {id:"a01",h:"いぬ",k:"イヌ",e:"\u{1F415}",c:"どうぶつ"},
+  {id:"a02",h:"ねこ",k:"ネコ",e:"\u{1F408}",c:"どうぶつ"},
+  {id:"a03",h:"うさぎ",k:"ウサギ",e:"\u{1F407}",c:"どうぶつ"},
+  {id:"a04",h:"ぞう",k:"ゾウ",e:"\u{1F418}",c:"どうぶつ"},
+  {id:"a05",h:"らいおん",k:"ライオン",e:"\u{1F981}",c:"どうぶつ"},
+  {id:"a06",h:"きりん",k:"キリン",e:"\u{1F992}",c:"どうぶつ"},
+  {id:"a07",h:"くま",k:"クマ",e:"\u{1F43B}",c:"どうぶつ"},
+  {id:"a08",h:"さる",k:"サル",e:"\u{1F412}",c:"どうぶつ"},
+  {id:"a09",h:"ぺんぎん",k:"ペンギン",e:"\u{1F427}",c:"どうぶつ"},
+  {id:"a10",h:"かめ",k:"カメ",e:"\u{1F422}",c:"どうぶつ"},
+  {id:"a11",h:"いるか",k:"イルカ",e:"\u{1F42C}",c:"どうぶつ"},
+  {id:"a12",h:"とら",k:"トラ",e:"\u{1F42F}",c:"どうぶつ"},
+  {id:"a13",h:"こあら",k:"コアラ",e:"\u{1F428}",c:"どうぶつ"},
+  {id:"a14",h:"ぱんだ",k:"パンダ",e:"\u{1F43C}",c:"どうぶつ"},
+  {id:"a15",h:"ひつじ",k:"ヒツジ",e:"\u{1F411}",c:"どうぶつ"},
+  {id:"a16",h:"うし",k:"ウシ",e:"\u{1F404}",c:"どうぶつ"},
+  {id:"a17",h:"ぶた",k:"ブタ",e:"\u{1F437}",c:"どうぶつ"},
+  {id:"a18",h:"にわとり",k:"ニワトリ",e:"\u{1F414}",c:"どうぶつ"},
+  {id:"a19",h:"かえる",k:"カエル",e:"\u{1F438}",c:"どうぶつ"},
+  {id:"a20",h:"ちょうちょ",k:"チョウチョ",e:"\u{1F98B}",c:"どうぶつ"},
+  {id:"a21",h:"ひよこ",k:"ヒヨコ",e:"\u{1F425}",c:"どうぶつ"},
+  {id:"a22",h:"くじら",k:"クジラ",e:"\u{1F433}",c:"どうぶつ"},
+  {id:"a23",h:"たこ",k:"タコ",e:"\u{1F419}",c:"どうぶつ"},
+  {id:"a24",h:"かに",k:"カニ",e:"\u{1F980}",c:"どうぶつ"},
+  {id:"a25",h:"えび",k:"エビ",e:"\u{1F990}",c:"どうぶつ"},
+  {id:"a26",h:"うま",k:"ウマ",e:"\u{1F434}",c:"どうぶつ"},
+  {id:"a27",h:"しか",k:"シカ",e:"\u{1F98C}",c:"どうぶつ"},
+  {id:"a28",h:"きつね",k:"キツネ",e:"\u{1F98A}",c:"どうぶつ"},
+  {id:"a29",h:"おおかみ",k:"オオカミ",e:"\u{1F43A}",c:"どうぶつ"},
+  {id:"a30",h:"かっぱ",k:"カッパ",e:"\u{1F9A6}",c:"どうぶつ"},
+  {id:"a31",h:"りす",k:"リス",e:"\u{1F43F}\uFE0F",c:"どうぶつ"},
+  {id:"a32",h:"とり",k:"トリ",e:"\u{1F426}",c:"どうぶつ"},
+  {id:"a33",h:"みつばち",k:"ミツバチ",e:"\u{1F41D}",c:"どうぶつ"},
+  {id:"a34",h:"かたつむり",k:"カタツムリ",e:"\u{1F40C}",c:"どうぶつ"},
+  {id:"a35",h:"さめ",k:"サメ",e:"\u{1F988}",c:"どうぶつ"},
+  // たべもの
+  {id:"f01",h:"りんご",k:"リンゴ",e:"\u{1F34E}",c:"たべもの"},
+  {id:"f02",h:"すし",k:"スシ",e:"\u{1F363}",c:"たべもの"},
+  {id:"f03",h:"らーめん",k:"ラーメン",e:"\u{1F35C}",c:"たべもの"},
+  {id:"f04",h:"ばなな",k:"バナナ",e:"\u{1F34C}",c:"たべもの"},
+  {id:"f05",h:"いちご",k:"イチゴ",e:"\u{1F353}",c:"たべもの"},
+  {id:"f06",h:"おにぎり",k:"オニギリ",e:"\u{1F359}",c:"たべもの"},
+  {id:"f07",h:"みかん",k:"ミカン",e:"\u{1F34A}",c:"たべもの"},
+  {id:"f08",h:"ぶどう",k:"ブドウ",e:"\u{1F347}",c:"たべもの"},
+  {id:"f09",h:"すいか",k:"スイカ",e:"\u{1F349}",c:"たべもの"},
+  {id:"f10",h:"とうもろこし",k:"トウモロコシ",e:"\u{1F33D}",c:"たべもの"},
+  {id:"f11",h:"たまご",k:"タマゴ",e:"\u{1F95A}",c:"たべもの"},
+  {id:"f12",h:"ぱん",k:"パン",e:"\u{1F35E}",c:"たべもの"},
+  {id:"f13",h:"けーき",k:"ケーキ",e:"\u{1F382}",c:"たべもの"},
+  {id:"f14",h:"あいすくりーむ",k:"アイスクリーム",e:"\u{1F366}",c:"たべもの"},
+  {id:"f15",h:"ぴざ",k:"ピザ",e:"\u{1F355}",c:"たべもの"},
+  {id:"f16",h:"はんばーがー",k:"ハンバーガー",e:"\u{1F354}",c:"たべもの"},
+  {id:"f17",h:"ちょこれーと",k:"チョコレート",e:"\u{1F36B}",c:"たべもの"},
+  {id:"f18",h:"おちゃ",k:"オチャ",e:"\u{1F375}",c:"たべもの"},
+  {id:"f19",h:"にんじん",k:"ニンジン",e:"\u{1F955}",c:"たべもの"},
+  {id:"f20",h:"さかな",k:"サカナ",e:"\u{1F41F}",c:"たべもの"},
+  {id:"f21",h:"もも",k:"モモ",e:"\u{1F351}",c:"たべもの"},
+  {id:"f22",h:"なし",k:"ナシ",e:"\u{1F350}",c:"たべもの"},
+  {id:"f23",h:"さくらんぼ",k:"サクランボ",e:"\u{1F352}",c:"たべもの"},
+  {id:"f24",h:"めろん",k:"メロン",e:"\u{1F348}",c:"たべもの"},
+  {id:"f25",h:"みそしる",k:"ミソシル",e:"\u{1F372}",c:"たべもの"},
+  {id:"f26",h:"うどん",k:"ウドン",e:"\u{1F35D}",c:"たべもの"},
+  {id:"f27",h:"やきとり",k:"ヤキトリ",e:"\u{1F362}",c:"たべもの"},
+  {id:"f28",h:"とまと",k:"トマト",e:"\u{1F345}",c:"たべもの"},
+  {id:"f29",h:"きゅうり",k:"キュウリ",e:"\u{1F952}",c:"たべもの"},
+  {id:"f30",h:"じゃがいも",k:"ジャガイモ",e:"\u{1F954}",c:"たべもの"},
+  {id:"f31",h:"ぽっぷこーん",k:"ポップコーン",e:"\u{1F37F}",c:"たべもの"},
+  {id:"f32",h:"どーなつ",k:"ドーナツ",e:"\u{1F369}",c:"たべもの"},
+  {id:"f33",h:"くっきー",k:"クッキー",e:"\u{1F36A}",c:"たべもの"},
+  {id:"f34",h:"きゃんでぃ",k:"キャンディ",e:"\u{1F36C}",c:"たべもの"},
+  {id:"f35",h:"こーひー",k:"コーヒー",e:"\u2615",c:"たべもの"},
+  // のりもの
+  {id:"v01",h:"ばす",k:"バス",e:"\u{1F68C}",c:"のりもの"},
+  {id:"v02",h:"でんしゃ",k:"デンシャ",e:"\u{1F683}",c:"のりもの"},
+  {id:"v03",h:"ひこうき",k:"ヒコウキ",e:"\u2708\uFE0F",c:"のりもの"},
+  {id:"v04",h:"くるま",k:"クルマ",e:"\u{1F697}",c:"のりもの"},
+  {id:"v05",h:"じてんしゃ",k:"ジテンシャ",e:"\u{1F6B2}",c:"のりもの"},
+  {id:"v06",h:"しんかんせん",k:"シンカンセン",e:"\u{1F685}",c:"のりもの"},
+  {id:"v07",h:"ふね",k:"フネ",e:"\u{1F6A2}",c:"のりもの"},
+  {id:"v08",h:"ろけっと",k:"ロケット",e:"\u{1F680}",c:"のりもの"},
+  {id:"v09",h:"へりこぷたー",k:"ヘリコプター",e:"\u{1F681}",c:"のりもの"},
+  {id:"v10",h:"きゅうきゅうしゃ",k:"キュウキュウシャ",e:"\u{1F691}",c:"のりもの"},
+  {id:"v11",h:"しょうぼうしゃ",k:"ショウボウシャ",e:"\u{1F692}",c:"のりもの"},
+  {id:"v12",h:"たくしー",k:"タクシー",e:"\u{1F695}",c:"のりもの"},
+  {id:"v13",h:"とらっく",k:"トラック",e:"\u{1F69B}",c:"のりもの"},
+  {id:"v14",h:"にりんしゃ",k:"ニリンシャ",e:"\u{1F3CD}\uFE0F",c:"のりもの"},
+  {id:"v15",h:"きゅうこうれっしゃ",k:"キュウコウレッシャ",e:"\u{1F684}",c:"のりもの"},
+  {id:"v16",h:"さんりんしゃ",k:"サンリンシャ",e:"\u{1F6F5}",c:"のりもの"},
+  {id:"v17",h:"うちゅうせん",k:"ウチュウセン",e:"\u{1F6F8}",c:"のりもの"},
+  {id:"v18",h:"とれーらー",k:"トレーラー",e:"\u{1F69C}",c:"のりもの"},
+  // にちじょう
+  {id:"d01",h:"くつ",k:"クツ",e:"\u{1F45F}",c:"にちじょう"},
+  {id:"d02",h:"かばん",k:"カバン",e:"\u{1F45C}",c:"にちじょう"},
+  {id:"d03",h:"えんぴつ",k:"エンピツ",e:"\u270F\uFE0F",c:"にちじょう"},
+  {id:"d04",h:"とけい",k:"トケイ",e:"\u23F0",c:"にちじょう"},
+  {id:"d05",h:"かさ",k:"カサ",e:"\u2602\uFE0F",c:"にちじょう"},
+  {id:"d06",h:"ほん",k:"ホン",e:"\u{1F4DA}",c:"にちじょう"},
+  {id:"d07",h:"でんわ",k:"デンワ",e:"\u{1F4DE}",c:"にちじょう"},
+  {id:"d08",h:"はさみ",k:"ハサミ",e:"\u2702\uFE0F",c:"にちじょう"},
+  {id:"d09",h:"ふうせん",k:"フウセン",e:"\u{1F388}",c:"にちじょう"},
+  {id:"d10",h:"ぼーる",k:"ボール",e:"\u26BD",c:"にちじょう"},
+  {id:"d11",h:"めがね",k:"メガネ",e:"\u{1F453}",c:"にちじょう"},
+  {id:"d12",h:"くれよん",k:"クレヨン",e:"\u{1F58D}\uFE0F",c:"にちじょう"},
+  {id:"d13",h:"はぶらし",k:"ハブラシ",e:"\u{1FAA5}",c:"にちじょう"},
+  {id:"d14",h:"でんち",k:"デンチ",e:"\u{1F50B}",c:"にちじょう"},
+  {id:"d15",h:"かぎ",k:"カギ",e:"\u{1F511}",c:"にちじょう"},
+  {id:"d16",h:"でんきゅう",k:"デンキュウ",e:"\u{1F4A1}",c:"にちじょう"},
+  {id:"d17",h:"すぷーん",k:"スプーン",e:"\u{1F944}",c:"にちじょう"},
+  {id:"d18",h:"ふぉーく",k:"フォーク",e:"\u{1F374}",c:"にちじょう"},
+  {id:"d19",h:"おわん",k:"オワン",e:"\u{1F963}",c:"にちじょう"},
+  {id:"d20",h:"まくら",k:"マクラ",e:"\u{1F6CF}\uFE0F",c:"にちじょう"},
+  {id:"d21",h:"てぶくろ",k:"テブクロ",e:"\u{1F9E4}",c:"にちじょう"},
+  {id:"d22",h:"ぼうし",k:"ボウシ",e:"\u{1F3A9}",c:"にちじょう"},
+  {id:"d23",h:"まふらー",k:"マフラー",e:"\u{1F9E3}",c:"にちじょう"},
+  {id:"d24",h:"にんぎょう",k:"ニンギョウ",e:"\u{1FA86}",c:"にちじょう"},
+  {id:"d25",h:"たいこ",k:"タイコ",e:"\u{1F941}",c:"にちじょう"},
+  {id:"d26",h:"てれび",k:"テレビ",e:"\u{1F4FA}",c:"にちじょう"},
+  {id:"d27",h:"かめら",k:"カメラ",e:"\u{1F4F7}",c:"にちじょう"},
+  {id:"d28",h:"つくえ",k:"ツクエ",e:"\u{1FA91}",c:"にちじょう"},
+  // しぜん
+  {id:"n01",h:"たいよう",k:"タイヨウ",e:"\u2600\uFE0F",c:"しぜん"},
+  {id:"n02",h:"つき",k:"ツキ",e:"\u{1F319}",c:"しぜん"},
+  {id:"n03",h:"ほし",k:"ホシ",e:"\u2B50",c:"しぜん"},
+  {id:"n04",h:"くも",k:"クモ",e:"\u2601\uFE0F",c:"しぜん"},
+  {id:"n05",h:"あめ",k:"アメ",e:"\u{1F327}\uFE0F",c:"しぜん"},
+  {id:"n06",h:"ゆき",k:"ユキ",e:"\u2744\uFE0F",c:"しぜん"},
+  {id:"n07",h:"かぜ",k:"カゼ",e:"\u{1F4A8}",c:"しぜん"},
+  {id:"n08",h:"にじ",k:"ニジ",e:"\u{1F308}",c:"しぜん"},
+  {id:"n09",h:"やま",k:"ヤマ",e:"\u26F0\uFE0F",c:"しぜん"},
+  {id:"n10",h:"うみ",k:"ウミ",e:"\u{1F30A}",c:"しぜん"},
+  {id:"n11",h:"かわ",k:"カワ",e:"\u{1F3DE}\uFE0F",c:"しぜん"},
+  {id:"n12",h:"はな",k:"ハナ",e:"\u{1F338}",c:"しぜん"},
+  {id:"n13",h:"き",k:"キ",e:"\u{1F333}",c:"しぜん"},
+  {id:"n14",h:"くさ",k:"クサ",e:"\u{1F33F}",c:"しぜん"},
+  {id:"n15",h:"いわ",k:"イワ",e:"\u{1FAA8}",c:"しぜん"},
+  {id:"n16",h:"かみなり",k:"カミナリ",e:"\u26A1",c:"しぜん"},
+  {id:"n17",h:"たきび",k:"タキビ",e:"\u{1F525}",c:"しぜん"},
+  {id:"n18",h:"みず",k:"ミズ",e:"\u{1F4A7}",c:"しぜん"},
+  {id:"n19",h:"たね",k:"タネ",e:"\u{1F331}",c:"しぜん"},
+  {id:"n20",h:"きのこ",k:"キノコ",e:"\u{1F344}",c:"しぜん"},
+  {id:"n21",h:"もみじ",k:"モミジ",e:"\u{1F341}",c:"しぜん"},
+  {id:"n22",h:"どんぐり",k:"ドングリ",e:"\u{1F330}",c:"しぜん"},
+  // からだ
+  {id:"b01",h:"め",k:"メ",e:"\u{1F440}",c:"からだ"},
+  {id:"b02",h:"はな",k:"ハナ",e:"\u{1F443}",c:"からだ"},
+  {id:"b03",h:"くち",k:"クチ",e:"\u{1F444}",c:"からだ"},
+  {id:"b04",h:"みみ",k:"ミミ",e:"\u{1F442}",c:"からだ"},
+  {id:"b05",h:"て",k:"テ",e:"\u270B",c:"からだ"},
+  {id:"b06",h:"あし",k:"アシ",e:"\u{1F9B5}",c:"からだ"},
+  {id:"b07",h:"あたま",k:"アタマ",e:"\u{1F5E3}\uFE0F",c:"からだ"},
+  {id:"b08",h:"は",k:"ハ",e:"\u{1F9B7}",c:"からだ"},
+  {id:"b09",h:"かみのけ",k:"カミノケ",e:"\u{1F487}",c:"からだ"},
+  {id:"b10",h:"こころ",k:"ココロ",e:"\u2764\uFE0F",c:"からだ"},
+  {id:"b11",h:"ゆび",k:"ユビ",e:"\u{1F446}",c:"からだ"},
+  {id:"b12",h:"せなか",k:"セナカ",e:"\u{1FAC1}",c:"からだ"}
+];
+
+var CATS = ["すべて","どうぶつ","たべもの","のりもの","にちじょう","しぜん","からだ"];
+var ICONS = {"どうぶつ":"\u{1F43E}","たべもの":"\u{1F37D}\uFE0F","のりもの":"\u{1F697}","にちじょう":"\u{1F3E0}","しぜん":"\u{1F33F}","からだ":"\u{1F440}"};
+var MODES = [
+  {id:"p2w",icon:"\u{1F5BC}\uFE0F",name:"えをみてよもう",desc:"絵を見て単語をタップ",bg:"#FF7F42"},
+  {id:"w2p",icon:"\u{1F4D6}",name:"よんでえをえらぼう",desc:"単語を読んで絵をタップ",bg:"#3BAF7A"},
+  {id:"match",icon:"\u{1F0CF}",name:"マッチング",desc:"絵と単語のペアをあわせよう",bg:"#4A8FD5"},
+  {id:"arrange",icon:"\u{1F500}",name:"ならびかえ",desc:"文字をならべて単語をつくろう",bg:"#8E59B0"}
+];
+
+// ── Global State ──
+var words = null;
+var screen = 'home';
+var mode = null;
+var script = 'h';
+var cat = 'すべて';
+var pool = [];
+var result = {ok:0,t:0};
+
+// Quiz state
+var quizQs = [];
+var quizQi = 0;
+var quizChoices = [];
+var quizSel = null;
+var quizOk = 0;
+
+// Match state
+var matchPairs = [];
+var matchLeftC = [];
+var matchRightC = [];
+var matchSelL = null;
+var matchSelR = null;
+var matchMatched = new Set();
+var matchFlash = null;
+
+// Arrange state
+var arrQs = [];
+var arrQi = 0;
+var arrTiles = [];
+var arrAns = [];
+var arrFb = null;
+var arrOk = 0;
+
+// Settings state
+var settingsPin = '';
+var settingsUnlocked = false;
+var settingsPinErr = false;
+var settingsTab = 'list';
+var settingsForm = {h:'',k:'',e:'',c:'どうぶつ'};
+var settingsEditing = null;
+var settingsMsg = '';
+
+// ── Helpers ──
+function sh(a) { return [].concat(a).sort(function() { return Math.random() - 0.5; }); }
+function getFiltered() { return cat === 'すべて' ? (words||[]) : (words||[]).filter(function(w) { return w.c === cat; }); }
+function gw(w) { return w[script]; }
+function saveWords(w) {
+  words = w;
+  try { localStorage.setItem('yomimiru_v1', JSON.stringify(w)); } catch(e) { console.error(e); }
+}
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Render ──
+function render() {
+  var app = document.getElementById('app');
+  if (!words) {
+    app.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-size:5rem">\u{1F4DA}</div>';
+    return;
+  }
+  if (screen === 'home') app.innerHTML = renderHome();
+  else if (screen === 'setup') app.innerHTML = renderSetup();
+  else if (screen === 'game') {
+    if (mode === 'p2w' || mode === 'w2p') app.innerHTML = renderQuiz();
+    else if (mode === 'match') app.innerHTML = renderMatch();
+    else app.innerHTML = renderArrange();
+  }
+  else if (screen === 'result') app.innerHTML = renderResult();
+  else if (screen === 'settings') app.innerHTML = renderSettings();
+  attachInputs();
+}
+
+// ── Home Screen ──
+function renderHome() {
+  var modeCards = MODES.map(function(m) {
+    return '<button data-action="selectMode" data-param="'+m.id+'" style="background:'+m.bg+';color:#fff;border:none;border-radius:22px;padding:22px 16px;cursor:pointer;font-family:inherit;text-align:left;box-shadow:0 6px 18px '+m.bg+'55">'
+      + '<div style="font-size:2rem">'+m.icon+'</div>'
+      + '<div style="font-size:1.05rem;font-weight:bold;margin-top:8px">'+m.name+'</div>'
+      + '<div style="font-size:0.78rem;opacity:.85;margin-top:4px">'+m.desc+'</div>'
+      + '</button>';
+  }).join('');
+  return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;gap:22px">'
+    + '<div style="text-align:center"><div style="font-size:3rem;font-weight:bold">\u{1F4DA} よんでみよう！</div><div style="color:#AAA;margin-top:6px">ひらがな・カタカナ 単語あそび</div></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:460px">' + modeCards + '</div>'
+    + '<button data-action="openSettings" style="background:none;border:2px solid #DDD;color:#999;border-radius:14px;padding:10px 22px;font-size:0.95rem;cursor:pointer;font-family:inherit;font-weight:bold">\u2699\uFE0F 保護者せってい</button>'
+    + '<a href="../" style="color:#BBB;font-size:0.9rem;text-decoration:none;font-weight:bold;padding:8px 18px;border-radius:12px;transition:color .2s">\u{1F3E0} トップにもどる</a>'
+    + '</div>';
+}
+
+// ── Setup Screen ──
+function renderSetup() {
+  var mi = MODES.find(function(m){return m.id===mode;});
+  var filtered = getFiltered();
+  var scriptBtns = [{v:'h',l:'ひらがな'},{v:'k',l:'カタカナ'}].map(function(s) {
+    return '<button data-action="setScript" data-param="'+s.v+'" style="flex:1;padding:12px;border:none;border-radius:12px;font-family:inherit;font-size:1rem;font-weight:bold;cursor:pointer;background:'+(script===s.v?'#FF7F42':'#EEE')+';color:'+(script===s.v?'#fff':'#777')+'">'+s.l+'</button>';
+  }).join('');
+  var catBtns = CATS.map(function(c) {
+    var label = c==='すべて' ? '\u{1F4DA} すべて' : (ICONS[c]+' '+c);
+    return '<button data-action="setCat" data-param="'+esc(c)+'" style="padding:9px 18px;border:none;border-radius:12px;font-family:inherit;font-size:0.92rem;font-weight:bold;cursor:pointer;background:'+(cat===c?'#4A8FD5':'#EEE')+';color:'+(cat===c?'#fff':'#777')+'">'+label+'</button>';
+  }).join('');
+  var countColor = filtered.length < 4 ? '#E53935' : '#AAA';
+  var countMsg = filtered.length + 'こ の単語' + (filtered.length < 4 ? ' （4こ以上 ひつよう）' : '');
+  return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;gap:18px">'
+    + '<div style="font-size:1.8rem;font-weight:bold;text-align:center">'+mi.icon+' '+mi.name+'</div>'
+    + '<div style="background:#fff;border-radius:22px;padding:22px;box-shadow:0 5px 20px rgba(0,0,0,.09);width:100%;max-width:420px">'
+    + '<div style="font-weight:bold;margin-bottom:12px">\u{1F4DD} ひょうきのしかた</div>'
+    + '<div style="display:flex;gap:10px">'+scriptBtns+'</div>'
+    + '</div>'
+    + '<div style="background:#fff;border-radius:22px;padding:22px;box-shadow:0 5px 20px rgba(0,0,0,.09);width:100%;max-width:420px">'
+    + '<div style="font-weight:bold;margin-bottom:12px">\u{1F4C2} カテゴリー</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:8px">'+catBtns+'</div>'
+    + '<div style="margin-top:12px;text-align:center;font-size:0.88rem;color:'+countColor+'">'+countMsg+'</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:14px">'
+    + '<button data-action="goHome" style="background:#AAA;color:#fff;border:none;border-radius:15px;padding:13px 26px;font-size:1.12rem;font-weight:bold;cursor:pointer;font-family:inherit">\u2190 もどる</button>'
+    + '<button data-action="startGame" '+(filtered.length<4?'disabled':'')
+    + ' style="background:'+(filtered.length<4?'#C8C8C8':'#FF7F42')+';color:#fff;border:none;border-radius:15px;padding:15px 36px;font-size:1.25rem;font-weight:bold;cursor:'+(filtered.length<4?'not-allowed':'pointer')+';font-family:inherit">\u{1F3AE} スタート！</button>'
+    + '</div></div>';
+}
+
+// ── Quiz Game (p2w / w2p) ──
+function renderQuiz() {
+  var N = quizQs.length;
+  var q = quizQs[quizQi];
+  var revealed = quizSel !== null;
+  var color = mode==='p2w' ? '#FF7F42' : '#3BAF7A';
+  var prompt;
+  if (mode === 'p2w') {
+    prompt = '<div style="font-size:6rem;line-height:1.1">'+q.e+'</div>';
+  } else {
+    prompt = '<div style="font-size:2.8rem;font-weight:bold;letter-spacing:0.05em">'+esc(gw(q))+'</div>';
+  }
+  var fbMsg = '';
+  if (revealed) {
+    fbMsg = quizSel===q.id ? '\u2B50 せいかい！' : '\u274C ' + (mode==='p2w'?esc(gw(q)):q.e) + ' だよ！';
+  }
+  var choicesHtml = quizChoices.map(function(c) {
+    var isAns = c.id===q.id, isSel = c.id===quizSel;
+    var bg = '#fff', border = '3px solid #FFD09A';
+    if (revealed) {
+      if (isAns) { bg='#E8F5E9'; border='3px solid #4CAF50'; }
+      else if (isSel) { bg='#FFEBEE'; border='3px solid #EF5350'; }
+    }
+    var content = mode==='p2w' ? esc(gw(c)) : c.e;
+    return '<button data-action="quizChoose" data-param="'+c.id+'" style="background:'+bg+';border:'+border+';border-radius:18px;cursor:pointer;font-family:inherit;font-weight:bold;transition:all .2s;box-shadow:0 3px 10px rgba(0,0,0,.08);padding:'+(mode==='w2p'?'18px 8px':'14px 8px')+';font-size:'+(mode==='w2p'?'3.2rem':'1.3rem')+';display:flex;align-items:center;justify-content:center;min-height:72px">'+content+'</button>';
+  }).join('');
+  var nextBtn = '';
+  if (revealed) {
+    var nextLabel = quizQi+1>=N ? 'けっかをみる \u{1F389}' : 'つぎへ \u2192';
+    nextBtn = '<button data-action="quizNext" style="background:'+color+';color:#fff;border:none;border-radius:15px;padding:14px 40px;font-size:1.2rem;font-weight:bold;cursor:pointer;font-family:inherit;margin-top:8px">'+nextLabel+'</button>';
+  }
+  return '<div style="display:flex;flex-direction:column;min-height:100vh;padding:20px 20px 32px">'
+    + renderHdr('goHome', '<span style="color:#999">'+(quizQi+1)+' / '+N+'</span>', '<span style="color:'+color+';font-weight:bold">\u2B50 '+quizOk+'</span>')
+    + renderBar(quizQi, N, color)
+    + '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:16px">'
+    + '<div style="background:#fff;border-radius:22px;padding:28px 40px;box-shadow:0 5px 20px rgba(0,0,0,.09);min-width:200px;text-align:center">'+prompt+'</div>'
+    + '<div style="font-size:1.7rem;min-height:44px;text-align:center">'+fbMsg+'</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;max-width:420px">'+choicesHtml+'</div>'
+    + nextBtn
+    + '</div></div>';
+}
+
+// ── Match Game ──
+function renderMatch() {
+  var PC = matchPairs.length;
+  var leftHtml = matchLeftC.map(function(w) {
+    var done = matchMatched.has(w.id), isSel = matchSelL && matchSelL.id===w.id, isF = matchFlash && matchFlash.l===w.id;
+    var bg = done?'#F1F8E9':isF?'#FFEBEE':isSel?'#FFF3E0':'#fff';
+    var border = done?'#81C784':isF?'#EF9A9A':isSel?'#FF7F42':'#E0E0E0';
+    var content = done ? '\u2705' : w.e;
+    return '<button data-action="matchClickL" data-param="'+w.id+'" '+(done?'disabled':'')+' style="flex:1;background:'+bg+';border:3px solid '+border+';border-radius:20px;font-size:3rem;cursor:'+(done?'default':'pointer')+';transition:all .2s;box-shadow:0 3px 10px rgba(0,0,0,.07);display:flex;align-items:center;justify-content:center;min-height:68px">'+content+'</button>';
+  }).join('');
+  var rightHtml = matchRightC.map(function(w) {
+    var done = matchMatched.has(w.id), isSel = matchSelR && matchSelR.id===w.id, isF = matchFlash && matchFlash.r===w.id;
+    var bg = done?'#F1F8E9':isF?'#FFEBEE':isSel?'#E8F0FB':'#fff';
+    var border = done?'#81C784':isF?'#EF9A9A':isSel?'#4A8FD5':'#E0E0E0';
+    var content = done ? '\u2705' : esc(gw(w));
+    return '<button data-action="matchClickR" data-param="'+w.id+'" '+(done?'disabled':'')+' style="flex:1;background:'+bg+';border:3px solid '+border+';border-radius:20px;font-size:1.15rem;font-weight:bold;cursor:'+(done?'default':'pointer')+';font-family:inherit;transition:all .2s;box-shadow:0 3px 10px rgba(0,0,0,.07);display:flex;align-items:center;justify-content:center;min-height:68px;padding:8px 10px;text-align:center;line-height:1.3">'+content+'</button>';
+  }).join('');
+  return '<div style="display:flex;flex-direction:column;min-height:100vh;padding:20px 20px 32px">'
+    + renderHdr('goHome', '\u{1F0CF} マッチング', '<span style="color:#4A8FD5;font-weight:bold">\u2B50 '+matchMatched.size+'/'+PC+'</span>')
+    + '<div style="text-align:center;color:#BBB;font-size:0.88rem;margin-bottom:14px">絵と単語のペアをえらんでね</div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1">'
+    + '<div style="display:flex;flex-direction:column;gap:10px">'+leftHtml+'</div>'
+    + '<div style="display:flex;flex-direction:column;gap:10px">'+rightHtml+'</div>'
+    + '</div></div>';
+}
+
+// ── Arrange Game ──
+function renderArrange() {
+  var N = arrQs.length;
+  var q = arrQs[arrQi];
+  var word = gw(q);
+  var placed = arrAns.filter(Boolean);
+  var remaining = arrTiles.filter(function(t) { return !placed.find(function(a){return a && a.id===t.id;}); });
+
+  var slotsHtml = arrAns.map(function(slot, i) {
+    var bg, border;
+    if (!slot) { bg='#F5F5F5'; border='3px dashed #CCC'; }
+    else if (arrFb==='ok') { bg='#E8F5E9'; border='3px solid #4CAF50'; }
+    else if (arrFb==='ng') { bg='#FFEBEE'; border='3px solid #EF5350'; }
+    else { bg='#FFF3E0'; border='3px solid #FF7F42'; }
+    var disabled = !slot || arrFb==='ok';
+    return '<button data-action="arrRemove" data-param="'+i+'" '+(disabled?'disabled':'')+' style="width:58px;height:68px;background:'+bg+';border:'+border+';border-radius:14px;font-size:1.7rem;font-weight:bold;cursor:'+(slot&&arrFb!=='ok'?'pointer':'default')+';font-family:inherit;transition:all .2s;display:flex;align-items:center;justify-content:center">'+(slot?esc(slot.ch):'')+'</button>';
+  }).join('');
+
+  var fbMsg = '';
+  if (arrFb === 'ok') fbMsg = '\u2B50 せいかい！';
+  else if (arrFb === 'ng') fbMsg = '\u274C もういちど！';
+
+  var tilesHtml = '';
+  if (!arrFb) {
+    tilesHtml = '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;max-width:400px">' + remaining.map(function(t) {
+      return '<button data-action="arrAdd" data-param="'+esc(t.id)+'" style="width:58px;height:68px;background:#fff;border:3px solid #D1B3FF;border-radius:14px;font-size:1.7rem;font-weight:bold;cursor:pointer;font-family:inherit;box-shadow:0 3px 10px rgba(0,0,0,.08);display:flex;align-items:center;justify-content:center">'+esc(t.ch)+'</button>';
+    }).join('') + '</div>';
+  }
+
+  var actionBtns = '';
+  if (arrFb) {
+    actionBtns = '<div style="display:flex;gap:14px">';
+    if (arrFb === 'ng') {
+      actionBtns += '<button data-action="arrRetry" style="background:#AAA;color:#fff;border:none;border-radius:15px;padding:13px 26px;font-size:1.12rem;font-weight:bold;cursor:pointer;font-family:inherit">もういちど</button>';
+    }
+    var nextLabel = arrQi+1>=N ? 'けっかをみる \u{1F389}' : 'つぎへ \u2192';
+    actionBtns += '<button data-action="arrNext" style="background:#8E59B0;color:#fff;border:none;border-radius:15px;padding:13px 36px;font-size:1.15rem;font-weight:bold;cursor:pointer;font-family:inherit">'+nextLabel+'</button>';
+    actionBtns += '</div>';
+  }
+
+  return '<div style="display:flex;flex-direction:column;min-height:100vh;padding:20px 20px 32px">'
+    + renderHdr('goHome', '<span style="color:#999">'+(arrQi+1)+' / '+N+'</span>', '<span style="color:#8E59B0;font-weight:bold">\u2B50 '+arrOk+'</span>')
+    + renderBar(arrQi, N, '#8E59B0')
+    + '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:20px">'
+    + '<div style="background:#fff;border-radius:22px;padding:28px 40px;box-shadow:0 5px 20px rgba(0,0,0,.09);text-align:center"><div style="font-size:6rem;line-height:1.1">'+q.e+'</div></div>'
+    + '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">'+slotsHtml+'</div>'
+    + '<div style="font-size:1.7rem;min-height:48px;text-align:center">'+fbMsg+'</div>'
+    + tilesHtml
+    + actionBtns
+    + '</div></div>';
+}
+
+// ── Result Screen ──
+function renderResult() {
+  var ok = result.ok, t = result.t;
+  var pct = Math.round((ok/t)*100);
+  var msg = pct===100 ? '\u{1F389} かんぺき！' : pct>=70 ? '\u{1F60A} よくできました！' : '\u{1F604} もう一度やってみよう！';
+  var trophy = pct===100 ? '\u{1F3C6}' : pct>=70 ? '\u2B50' : '\u{1F4AA}';
+  return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;gap:22px;text-align:center">'
+    + '<div style="font-size:4rem">'+trophy+'</div>'
+    + '<div style="font-size:1.6rem;font-weight:bold">'+msg+'</div>'
+    + '<div style="background:#fff;border-radius:22px;padding:22px;box-shadow:0 5px 20px rgba(0,0,0,.09);min-width:240px">'
+    + '<div style="font-size:3.5rem;font-weight:bold;color:#FF7F42">'+ok+' <span style="font-size:1.2rem;color:#AAA">/ '+t+'</span></div>'
+    + '<div style="color:#AAA;margin-top:4px">せいかい</div>'
+    + '<div style="margin-top:16px;height:12px;background:#EEE;border-radius:10px"><div style="height:100%;background:#FF7F42;border-radius:10px;width:'+pct+'%;transition:width .6s"></div></div>'
+    + '<div style="margin-top:6px;color:#FF7F42;font-weight:bold">'+pct+'%</div>'
+    + '</div>'
+    + '<div style="display:flex;gap:14px">'
+    + '<button data-action="goHome" style="background:#AAA;color:#fff;border:none;border-radius:15px;padding:13px 26px;font-size:1.12rem;font-weight:bold;cursor:pointer;font-family:inherit">\u{1F3E0} ホーム</button>'
+    + '<button data-action="retryGame" style="background:#FF7F42;color:#fff;border:none;border-radius:15px;padding:13px 26px;font-size:1.12rem;font-weight:bold;cursor:pointer;font-family:inherit">\u{1F504} もう一度</button>'
+    + '</div></div>';
+}
+
+// ── Settings Screen ──
+function renderSettings() {
+  if (!settingsUnlocked) {
+    return '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;gap:16px">'
+      + '<div style="font-size:2rem;font-weight:bold">\u{1F512} 保護者せってい</div>'
+      + '<div style="color:#AAA">PINコードを入力してください</div>'
+      + '<input id="pinInput" type="password" value="'+esc(settingsPin)+'" placeholder="1234" style="font-size:1.5rem;padding:12px 20px;border:2px solid #DDD;border-radius:14px;text-align:center;width:180px;letter-spacing:0.3em;font-family:inherit">'
+      + (settingsPinErr ? '<div style="color:#EF5350">PINがちがいます</div>' : '')
+      + '<div style="display:flex;gap:12px">'
+      + '<button data-action="goHome" style="background:#AAA;color:#fff;border:none;border-radius:15px;padding:13px 26px;font-size:1.12rem;font-weight:bold;cursor:pointer;font-family:inherit">\u2190 もどる</button>'
+      + '<button data-action="tryPin" style="background:#FF7F42;color:#fff;border:none;border-radius:15px;padding:13px 26px;font-size:1.12rem;font-weight:bold;cursor:pointer;font-family:inherit">ひらく \u{1F513}</button>'
+      + '</div>'
+      + '<div style="color:#CCC;font-size:0.8rem;margin-top:8px">初期PIN: 1234</div>'
+      + '</div>';
+  }
+
+  var msgHtml = '';
+  if (settingsMsg) {
+    msgHtml = '<div style="background:#E8F5E9;color:#388E3C;padding:10px 16px;border-radius:12px;margin-bottom:12px;text-align:center;font-weight:bold">'+esc(settingsMsg)+'</div>';
+  }
+
+  var tabBtns = [{id:'list',l:'単語一覧'},{id:'add',l:'単語を追加'}].map(function(t) {
+    return '<button data-action="settingsTab" data-param="'+t.id+'" style="flex:1;padding:11px;border:none;border-radius:12px;font-family:inherit;font-weight:bold;cursor:pointer;font-size:0.95rem;background:'+(settingsTab===t.id?'#FF7F42':'#EEE')+';color:'+(settingsTab===t.id?'#fff':'#777')+'">'+t.l+'</button>';
+  }).join('');
+
+  var contentHtml = '';
+
+  if (settingsTab === 'list') {
+    if (words.length === 0) {
+      contentHtml = '<div style="text-align:center;color:#CCC;padding:32px">単語がありません</div>';
+    } else {
+      contentHtml = '<div style="display:flex;flex-direction:column;gap:8px">' + words.map(function(w) {
+        return '<div style="background:#fff;border-radius:16px;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.07)">'
+          + '<span style="font-size:2rem">'+w.e+'</span>'
+          + '<div style="flex:1"><div style="font-weight:bold;font-size:1.05rem">'+esc(w.h)+' / '+esc(w.k)+'</div><div style="font-size:0.8rem;color:#AAA">'+(ICONS[w.c]||'')+' '+esc(w.c)+'</div></div>'
+          + '<button data-action="startEdit" data-param="'+w.id+'" style="background:#4A8FD5;color:#fff;border:none;border-radius:10px;padding:7px 14px;cursor:pointer;font-family:inherit;font-weight:bold;font-size:0.88rem">編集</button>'
+          + '<button data-action="deleteWord" data-param="'+w.id+'" style="background:#EF5350;color:#fff;border:none;border-radius:10px;padding:7px 14px;cursor:pointer;font-family:inherit;font-weight:bold;font-size:0.88rem">削除</button>'
+          + '</div>';
+      }).join('') + '</div>';
+    }
+  }
+
+  if (settingsTab === 'add') {
+    contentHtml = '<div style="background:#fff;border-radius:22px;padding:22px;box-shadow:0 5px 20px rgba(0,0,0,.09)">'
+      + '<div style="font-weight:bold;margin-bottom:16px">新しい単語を追加</div>'
+      + renderFormRow('ひらがな *', settingsForm.h, 'formH', '例：ぱんだ')
+      + renderFormRow('カタカナ（省略可）', settingsForm.k, 'formK', '例：パンダ（空欄でひらがなと同じ）')
+      + renderFormRow('絵文字 *', settingsForm.e, 'formE', '例：\u{1F43C}')
+      + renderCatSelector(settingsForm.c, 'setFormCat')
+      + '<button data-action="addWord" '+((!settingsForm.h||!settingsForm.e)?'disabled':'')+' style="background:'+((!settingsForm.h||!settingsForm.e)?'#C8C8C8':'#FF7F42')+';color:#fff;border:none;border-radius:15px;padding:13px 26px;font-size:1.12rem;font-weight:bold;cursor:'+((!settingsForm.h||!settingsForm.e)?'not-allowed':'pointer')+';font-family:inherit;width:100%;text-align:center">\uFF0B 追加する</button>'
+      + '</div>';
+  }
+
+  if (settingsTab === 'edit' && settingsEditing) {
+    contentHtml = '<div style="background:#fff;border-radius:22px;padding:22px;box-shadow:0 5px 20px rgba(0,0,0,.09)">'
+      + '<div style="font-weight:bold;margin-bottom:16px">単語を編集</div>'
+      + renderFormRow('ひらがな', settingsEditing.h, 'editH', '')
+      + renderFormRow('カタカナ', settingsEditing.k, 'editK', '')
+      + renderFormRow('絵文字', settingsEditing.e, 'editE', '')
+      + renderCatSelector(settingsEditing.c, 'setEditCat')
+      + '<div style="display:flex;gap:10px">'
+      + '<button data-action="cancelEdit" style="flex:1;background:#AAA;color:#fff;border:none;border-radius:15px;padding:13px 26px;font-size:1.12rem;font-weight:bold;cursor:pointer;font-family:inherit">キャンセル</button>'
+      + '<button data-action="saveEdit" style="flex:1;background:#FF7F42;color:#fff;border:none;border-radius:15px;padding:13px 26px;font-size:1.12rem;font-weight:bold;cursor:pointer;font-family:inherit">\u{1F4BE} 保存</button>'
+      + '</div></div>';
+  }
+
+  return '<div style="display:flex;flex-direction:column;min-height:100vh;padding:20px 20px 40px;max-width:480px;margin:0 auto">'
+    + renderHdr('goHome', '\u2699\uFE0F 保護者せってい', '')
+    + msgHtml
+    + '<div style="display:flex;gap:8px;margin-bottom:18px">'+tabBtns+'</div>'
+    + contentHtml
+    + '</div>';
+}
+
+function renderFormRow(label, val, inputId, placeholder) {
+  return '<div style="margin-bottom:12px">'
+    + '<div style="font-size:0.85rem;color:#AAA;margin-bottom:4px">'+esc(label)+'</div>'
+    + '<input id="'+inputId+'" value="'+esc(val)+'" placeholder="'+esc(placeholder)+'" style="width:100%;box-sizing:border-box;padding:10px 14px;border:2px solid #EEE;border-radius:12px;font-size:1rem;font-family:inherit">'
+    + '</div>';
+}
+
+function renderCatSelector(cur, actionPrefix) {
+  var cats = ['どうぶつ','たべもの','のりもの','にちじょう'];
+  return '<div style="margin-bottom:16px">'
+    + '<div style="font-size:0.85rem;color:#AAA;margin-bottom:4px">カテゴリー</div>'
+    + '<div style="display:flex;gap:6px;flex-wrap:wrap">'
+    + cats.map(function(c) {
+      return '<button data-action="'+actionPrefix+'" data-param="'+esc(c)+'" style="padding:7px 14px;border:none;border-radius:10px;font-family:inherit;font-size:0.88rem;font-weight:bold;cursor:pointer;background:'+(cur===c?'#4A8FD5':'#EEE')+';color:'+(cur===c?'#fff':'#777')+'">'+(ICONS[c]||'')+' '+c+'</button>';
+    }).join('')
+    + '</div></div>';
+}
+
+// ── UI Primitives ──
+function renderHdr(backAction, mid, right) {
+  return '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">'
+    + '<button data-action="'+backAction+'" style="background:none;border:none;font-size:1.7rem;cursor:pointer;line-height:1;padding:4px">\u2715</button>'
+    + '<span style="font-weight:bold;font-size:1.05rem">'+mid+'</span>'
+    + '<span>'+right+'</span>'
+    + '</div>';
+}
+
+function renderBar(v, n, color) {
+  var pct = (v/n)*100;
+  return '<div style="height:9px;background:#EEE;border-radius:10px;margin-bottom:24px">'
+    + '<div style="height:100%;background:'+color+';border-radius:10px;width:'+pct+'%;transition:width .4s"></div>'
+    + '</div>';
+}
+
+// ── Input Attachment ──
+function attachInputs() {
+  // PIN input
+  var pinInput = document.getElementById('pinInput');
+  if (pinInput) {
+    pinInput.addEventListener('input', function(e) { settingsPin = e.target.value; });
+    pinInput.addEventListener('keydown', function(e) { if (e.key==='Enter') handleAction('tryPin'); });
+  }
+  // Form inputs for add
+  var ids = ['formH','formK','formE'];
+  var keys = ['h','k','e'];
+  ids.forEach(function(id, i) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', function(e) { settingsForm[keys[i]] = e.target.value; });
+  });
+  // Form inputs for edit
+  var eids = ['editH','editK','editE'];
+  var ekeys = ['h','k','e'];
+  eids.forEach(function(id, i) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', function(e) {
+      if (settingsEditing) settingsEditing[ekeys[i]] = e.target.value;
+    });
+  });
+}
+
+// ── Game Start Logic ──
+function startGame() {
+  var filtered = getFiltered();
+  if (filtered.length < 4) return;
+  pool = sh(filtered);
+  result = {ok:0,t:0};
+
+  if (mode === 'p2w' || mode === 'w2p') {
+    var N = Math.min(10, pool.length);
+    quizQs = sh(pool).slice(0, N);
+    quizQi = 0;
+    quizSel = null;
+    quizOk = 0;
+    initQuizChoices();
+  } else if (mode === 'match') {
+    var PC = Math.min(6, pool.length);
+    matchPairs = sh(pool).slice(0, PC);
+    matchLeftC = sh(matchPairs);
+    matchRightC = sh(matchPairs);
+    matchSelL = null;
+    matchSelR = null;
+    matchMatched = new Set();
+    matchFlash = null;
+  } else {
+    var Na = Math.min(8, pool.length);
+    arrQs = sh(pool).slice(0, Na);
+    arrQi = 0;
+    arrOk = 0;
+    arrFb = null;
+    initArrQuestion(0);
+  }
+
+  screen = 'game';
+  render();
+}
+
+function initQuizChoices() {
+  var q = quizQs[quizQi];
+  var wrong = sh(pool.filter(function(w){return w.id!==q.id;})).slice(0,3);
+  quizChoices = sh([q].concat(wrong));
+  quizSel = null;
+}
+
+function initArrQuestion(idx) {
+  var word = gw(arrQs[idx]);
+  var chars = Array.from(word);
+  arrTiles = sh(chars.map(function(c,i){return {id:idx+'_'+i,ch:c};}));
+  arrAns = new Array(chars.length).fill(null);
+  arrFb = null;
+}
+
+// ── Match Logic ──
+function matchTryMatch(l, r) {
+  if (l.id === r.id) {
+    matchMatched.add(l.id);
+    matchSelL = null;
+    matchSelR = null;
+    render();
+    if (matchMatched.size === matchPairs.length) {
+      setTimeout(function() {
+        result = {ok:matchPairs.length, t:matchPairs.length};
+        screen = 'result';
+        render();
+      }, 700);
+    }
+  } else {
+    matchFlash = {l:l.id, r:r.id};
+    render();
+    setTimeout(function() {
+      matchFlash = null;
+      matchSelL = null;
+      matchSelR = null;
+      render();
+    }, 650);
+  }
+}
+
+function findWordById(id) {
+  return (words||[]).concat(pool).find(function(w){return w.id===id;});
+}
+
+// ── Action Handler ──
+function handleAction(action, param) {
+  switch(action) {
+    case 'selectMode':
+      mode = param;
+      screen = 'setup';
+      render();
+      break;
+    case 'openSettings':
+      settingsPin = '';
+      settingsUnlocked = false;
+      settingsPinErr = false;
+      settingsTab = 'list';
+      settingsForm = {h:'',k:'',e:'',c:'どうぶつ'};
+      settingsEditing = null;
+      settingsMsg = '';
+      screen = 'settings';
+      render();
+      break;
+    case 'goHome':
+      screen = 'home';
+      render();
+      break;
+    case 'setScript':
+      script = param;
+      render();
+      break;
+    case 'setCat':
+      cat = param;
+      render();
+      break;
+    case 'startGame':
+      startGame();
+      break;
+    case 'retryGame':
+      startGame();
+      break;
+
+    // Quiz
+    case 'quizChoose':
+      if (quizSel !== null) return;
+      quizSel = param;
+      if (param === quizQs[quizQi].id) quizOk++;
+      render();
+      break;
+    case 'quizNext':
+      if (quizQi + 1 >= quizQs.length) {
+        result = {ok:quizOk, t:quizQs.length};
+        screen = 'result';
+      } else {
+        quizQi++;
+        initQuizChoices();
+      }
+      render();
+      break;
+
+    // Match
+    case 'matchClickL':
+      if (matchFlash) return;
+      var wL = matchLeftC.find(function(w){return w.id===param;});
+      if (!wL || matchMatched.has(wL.id)) return;
+      if (matchSelL && matchSelL.id === wL.id) { matchSelL = null; render(); return; }
+      matchSelL = wL;
+      if (matchSelL && matchSelR) matchTryMatch(matchSelL, matchSelR);
+      else render();
+      break;
+    case 'matchClickR':
+      if (matchFlash) return;
+      var wR = matchRightC.find(function(w){return w.id===param;});
+      if (!wR || matchMatched.has(wR.id)) return;
+      if (matchSelR && matchSelR.id === wR.id) { matchSelR = null; render(); return; }
+      matchSelR = wR;
+      if (matchSelL && matchSelR) matchTryMatch(matchSelL, matchSelR);
+      else render();
+      break;
+
+    // Arrange
+    case 'arrAdd':
+      if (arrFb) return;
+      var tile = arrTiles.find(function(t){return t.id===param;});
+      if (!tile) return;
+      var idx = arrAns.indexOf(null);
+      if (idx === -1) return;
+      arrAns[idx] = tile;
+      if (arrAns.indexOf(null) === -1) {
+        var word = gw(arrQs[arrQi]);
+        var isOk = arrAns.map(function(x){return x.ch;}).join('') === word;
+        arrFb = isOk ? 'ok' : 'ng';
+        if (isOk) arrOk++;
+      }
+      render();
+      break;
+    case 'arrRemove':
+      var si = parseInt(param, 10);
+      if (arrFb || !arrAns[si]) return;
+      arrAns[si] = null;
+      render();
+      break;
+    case 'arrRetry':
+      initArrQuestion(arrQi);
+      render();
+      break;
+    case 'arrNext':
+      if (arrQi + 1 >= arrQs.length) {
+        result = {ok:arrOk, t:arrQs.length};
+        screen = 'result';
+      } else {
+        arrQi++;
+        initArrQuestion(arrQi);
+      }
+      render();
+      break;
+
+    // Settings
+    case 'tryPin':
+      if (settingsPin === '1234') { settingsUnlocked = true; settingsPinErr = false; }
+      else { settingsPinErr = true; }
+      render();
+      break;
+    case 'settingsTab':
+      settingsTab = param;
+      settingsEditing = null;
+      render();
+      break;
+    case 'setFormCat':
+      settingsForm.c = param;
+      render();
+      break;
+    case 'setEditCat':
+      if (settingsEditing) settingsEditing.c = param;
+      render();
+      break;
+    case 'addWord':
+      if (!settingsForm.h || !settingsForm.e) return;
+      var nk = settingsForm.k || settingsForm.h;
+      var nw = words.concat([{id:Date.now().toString(),h:settingsForm.h,k:nk,e:settingsForm.e,c:settingsForm.c}]);
+      saveWords(nw);
+      settingsForm = {h:'',k:'',e:'',c:'どうぶつ'};
+      settingsMsg = '\u2705 追加しました！';
+      render();
+      setTimeout(function(){ settingsMsg=''; render(); }, 1800);
+      break;
+    case 'deleteWord':
+      saveWords(words.filter(function(w){return w.id!==param;}));
+      render();
+      break;
+    case 'startEdit':
+      var ew = words.find(function(w){return w.id===param;});
+      if (ew) {
+        settingsEditing = {id:ew.id,h:ew.h,k:ew.k,e:ew.e,c:ew.c};
+        settingsTab = 'edit';
+        render();
+      }
+      break;
+    case 'cancelEdit':
+      settingsTab = 'list';
+      settingsEditing = null;
+      render();
+      break;
+    case 'saveEdit':
+      if (!settingsEditing) return;
+      saveWords(words.map(function(w){ return w.id===settingsEditing.id ? settingsEditing : w; }));
+      settingsEditing = null;
+      settingsTab = 'list';
+      settingsMsg = '\u2705 保存しました！';
+      render();
+      setTimeout(function(){ settingsMsg=''; render(); }, 1800);
+      break;
+  }
+}
+
+// ── Delegated Event Handler ──
+document.getElementById('app').addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-action]');
+  if (!btn) return;
+  if (btn.disabled) return;
+  var action = btn.dataset.action;
+  var param = btn.dataset.param;
+  handleAction(action, param);
+});
+
+// ── Init ──
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    var r = localStorage.getItem('yomimiru_v1');
+    words = r ? JSON.parse(r) : DEFAULT_WORDS;
+  } catch(e) {
+    words = DEFAULT_WORDS;
+  }
+  render();
+});
+
+// Immediate init in case DOMContentLoaded already fired
+if (document.readyState !== 'loading') {
+  try {
+    var r = localStorage.getItem('yomimiru_v1');
+    words = r ? JSON.parse(r) : DEFAULT_WORDS;
+  } catch(e) {
+    words = DEFAULT_WORDS;
+  }
+  render();
+}
+
+// ── Service Worker Registration ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(function(e) { console.log('SW registration skipped:', e); });
+}
+  </script>
+</body>
+</html>
