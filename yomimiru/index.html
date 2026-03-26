@@ -242,6 +242,112 @@ function esc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// ── Sound Effects (Web Audio API) ──
+var _audioCtx = null;
+function ac() { if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)(); return _audioCtx; }
+
+function playTone(freq, dur, type, vol, delay) {
+  try {
+    type = type || 'sine'; vol = vol || 0.15; delay = delay || 0;
+    var ctx = ac();
+    var osc = ctx.createOscillator();
+    var g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+    g.gain.setValueAtTime(vol, ctx.currentTime + delay);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(ctx.currentTime + delay);
+    osc.stop(ctx.currentTime + delay + dur);
+  } catch(e) {}
+}
+
+function playSweep(from, to, dur, type, vol) {
+  try {
+    type = type || 'sine'; vol = vol || 0.12;
+    var ctx = ac();
+    var osc = ctx.createOscillator();
+    var g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(from, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(to, ctx.currentTime + dur);
+    g.gain.setValueAtTime(vol, ctx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+    osc.connect(g); g.connect(ctx.destination);
+    osc.start(); osc.stop(ctx.currentTime + dur);
+  } catch(e) {}
+}
+
+// 正解！（ドミソ上昇メロディ + キラキラ）
+function sfxCorrect() {
+  playTone(523, 0.15, 'sine', 0.18, 0);
+  playTone(659, 0.15, 'sine', 0.18, 0.1);
+  playTone(784, 0.25, 'sine', 0.2, 0.2);
+  playSweep(1200, 2400, 0.2, 'sine', 0.06);
+}
+
+// 不正解（やさしい下降音）
+function sfxWrong() {
+  playTone(330, 0.2, 'triangle', 0.15, 0);
+  playTone(260, 0.3, 'triangle', 0.12, 0.15);
+}
+
+// ボタンタップ（ぽこっ）
+function sfxTap() {
+  playSweep(600, 900, 0.08, 'sine', 0.1);
+}
+
+// マッチ成功（ピコン♪）
+function sfxMatch() {
+  playTone(784, 0.12, 'sine', 0.15, 0);
+  playTone(1047, 0.2, 'sine', 0.18, 0.08);
+}
+
+// マッチ失敗（ブブッ）
+function sfxMiss() {
+  playTone(200, 0.1, 'square', 0.08, 0);
+  playTone(180, 0.15, 'square', 0.06, 0.12);
+}
+
+// 文字配置（ぽん）
+function sfxPlace() {
+  playSweep(400, 800, 0.1, 'sine', 0.1);
+}
+
+// ゲーム完了・結果画面（ファンファーレ）
+function sfxResult(pct) {
+  if (pct === 100) {
+    // パーフェクト！豪華ファンファーレ
+    playTone(523, 0.2, 'sine', 0.15, 0);
+    playTone(659, 0.2, 'sine', 0.15, 0.15);
+    playTone(784, 0.2, 'sine', 0.15, 0.3);
+    playTone(1047, 0.4, 'sine', 0.2, 0.45);
+    playSweep(800, 2000, 0.3, 'sine', 0.05);
+    setTimeout(function() {
+      playTone(1047, 0.15, 'sine', 0.08, 0);
+      playTone(1175, 0.15, 'sine', 0.08, 0.1);
+      playTone(1319, 0.3, 'sine', 0.1, 0.2);
+    }, 600);
+  } else if (pct >= 70) {
+    // よくできました
+    playTone(523, 0.18, 'sine', 0.15, 0);
+    playTone(659, 0.18, 'sine', 0.15, 0.12);
+    playTone(784, 0.3, 'sine', 0.18, 0.24);
+  } else {
+    // がんばろう（やさしい応援音）
+    playTone(392, 0.2, 'sine', 0.12, 0);
+    playTone(440, 0.2, 'sine', 0.12, 0.15);
+    playTone(523, 0.3, 'sine', 0.15, 0.3);
+  }
+}
+
+// スタート（ゲーム開始のわくわく音）
+function sfxStart() {
+  playSweep(300, 600, 0.15, 'sine', 0.12);
+  playTone(784, 0.15, 'sine', 0.15, 0.12);
+  playTone(1047, 0.2, 'sine', 0.18, 0.22);
+}
+
 // ── Render ──
 function render() {
   var app = document.getElementById('app');
@@ -638,6 +744,7 @@ function initArrQuestion(idx) {
 // ── Match Logic ──
 function matchTryMatch(l, r) {
   if (l.id === r.id) {
+    sfxMatch();
     matchMatched.add(l.id);
     matchSelL = null;
     matchSelR = null;
@@ -646,10 +753,12 @@ function matchTryMatch(l, r) {
       setTimeout(function() {
         result = {ok:matchPairs.length, t:matchPairs.length};
         screen = 'result';
+        sfxResult(100);
         render();
       }, 700);
     }
   } else {
+    sfxMiss();
     matchFlash = {l:l.id, r:r.id};
     render();
     setTimeout(function() {
@@ -669,6 +778,7 @@ function findWordById(id) {
 function handleAction(action, param) {
   switch(action) {
     case 'selectMode':
+      sfxTap();
       mode = param;
       screen = 'setup';
       render();
@@ -697,9 +807,11 @@ function handleAction(action, param) {
       render();
       break;
     case 'startGame':
+      sfxStart();
       startGame();
       break;
     case 'retryGame':
+      sfxStart();
       startGame();
       break;
 
@@ -707,13 +819,14 @@ function handleAction(action, param) {
     case 'quizChoose':
       if (quizSel !== null) return;
       quizSel = param;
-      if (param === quizQs[quizQi].id) quizOk++;
+      if (param === quizQs[quizQi].id) { quizOk++; sfxCorrect(); } else { sfxWrong(); }
       render();
       break;
     case 'quizNext':
       if (quizQi + 1 >= quizQs.length) {
         result = {ok:quizOk, t:quizQs.length};
         screen = 'result';
+        sfxResult(Math.round((quizOk/quizQs.length)*100));
       } else {
         quizQi++;
         initQuizChoices();
@@ -726,6 +839,7 @@ function handleAction(action, param) {
       if (matchFlash) return;
       var wL = matchLeftC.find(function(w){return w.id===param;});
       if (!wL || matchMatched.has(wL.id)) return;
+      sfxTap();
       if (matchSelL && matchSelL.id === wL.id) { matchSelL = null; render(); return; }
       matchSelL = wL;
       if (matchSelL && matchSelR) matchTryMatch(matchSelL, matchSelR);
@@ -735,6 +849,7 @@ function handleAction(action, param) {
       if (matchFlash) return;
       var wR = matchRightC.find(function(w){return w.id===param;});
       if (!wR || matchMatched.has(wR.id)) return;
+      sfxTap();
       if (matchSelR && matchSelR.id === wR.id) { matchSelR = null; render(); return; }
       matchSelR = wR;
       if (matchSelL && matchSelR) matchTryMatch(matchSelL, matchSelR);
@@ -748,12 +863,13 @@ function handleAction(action, param) {
       if (!tile) return;
       var idx = arrAns.indexOf(null);
       if (idx === -1) return;
+      sfxPlace();
       arrAns[idx] = tile;
       if (arrAns.indexOf(null) === -1) {
         var word = gw(arrQs[arrQi]);
         var isOk = arrAns.map(function(x){return x.ch;}).join('') === word;
         arrFb = isOk ? 'ok' : 'ng';
-        if (isOk) arrOk++;
+        if (isOk) { arrOk++; sfxCorrect(); } else { sfxWrong(); }
       }
       render();
       break;
@@ -771,6 +887,7 @@ function handleAction(action, param) {
       if (arrQi + 1 >= arrQs.length) {
         result = {ok:arrOk, t:arrQs.length};
         screen = 'result';
+        sfxResult(Math.round((arrOk/arrQs.length)*100));
       } else {
         arrQi++;
         initArrQuestion(arrQi);

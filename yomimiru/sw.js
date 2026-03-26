@@ -1,4 +1,4 @@
-const CACHE = 'yomimiru-v1';
+const CACHE = 'yomimiru-v2';
 const ASSETS = ['./', './index.html'];
 
 self.addEventListener('install', e => {
