@@ -70,7 +70,7 @@ body {
 
 .monster-area {
   display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1;
-  justify-content: center; min-height: 0;
+  justify-content: center; min-height: 0; position: relative;
 }
 .monster-emoji { font-size: 5rem; transition: transform 0.3s; }
 .monster-emoji.hit { animation: monsterHit 0.4s; }
@@ -170,6 +170,47 @@ body {
   0% { opacity: 1; transform: scale(1); }
   100% { opacity: 0; transform: scale(2) translateY(-30px); }
 }
+/* 攻撃スラッシュ */
+.attack-slash {
+  position: absolute; top: 50%; left: 50%; pointer-events: none; z-index: 10;
+  font-size: 4rem; transform: translate(-50%, -50%) scale(0) rotate(-30deg); opacity: 0;
+}
+.attack-slash.active {
+  animation: slashAnim 0.45s ease-out forwards;
+}
+@keyframes slashAnim {
+  0% { opacity: 1; transform: translate(-50%, -50%) scale(0.3) rotate(-45deg); }
+  40% { opacity: 1; transform: translate(-50%, -50%) scale(1.4) rotate(10deg); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.8) rotate(15deg); }
+}
+/* ダメージ数字 */
+.damage-num {
+  position: absolute; top: 30%; left: 50%; pointer-events: none; z-index: 11;
+  font-size: 2.2rem; font-weight: bold; color: #f1c40f;
+  text-shadow: 2px 2px 0 #c0392b, -1px -1px 0 #c0392b;
+  opacity: 0; transform: translate(-50%, 0);
+}
+.damage-num.active {
+  animation: damageFloat 0.8s ease-out forwards;
+}
+@keyframes damageFloat {
+  0% { opacity: 1; transform: translate(-50%, 0) scale(0.5); }
+  30% { opacity: 1; transform: translate(-50%, -15px) scale(1.3); }
+  100% { opacity: 0; transform: translate(-50%, -50px) scale(1); }
+}
+/* 画面フラッシュ */
+.hit-flash {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(255, 255, 255, 0.4); pointer-events: none; z-index: 9;
+  opacity: 0;
+}
+.hit-flash.active {
+  animation: flashAnim 0.2s ease-out;
+}
+@keyframes flashAnim {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
 </style>
 </head>
 <body>
@@ -206,6 +247,9 @@ body {
 <div id="game-screen" class="screen">
   <div class="player-hp" id="player-hp"></div>
   <div class="monster-area">
+    <div class="attack-slash" id="attack-slash">⚔️</div>
+    <div class="damage-num" id="damage-num">-1</div>
+    <div class="hit-flash" id="hit-flash"></div>
     <div class="monster-emoji" id="monster-emoji"></div>
     <div class="monster-name" id="monster-name"></div>
     <div class="monster-hp-bar"><div class="monster-hp-fill" id="monster-hp-fill"></div></div>
@@ -540,6 +584,27 @@ function showQuestion() {
   answering = true;
 }
 
+/* ===== 攻撃エフェクト ===== */
+function playAttackEffect() {
+  // スラッシュ
+  const slash = document.getElementById('attack-slash');
+  slash.classList.remove('active');
+  void slash.offsetWidth;
+  slash.classList.add('active');
+
+  // ダメージ数字
+  const dmg = document.getElementById('damage-num');
+  dmg.classList.remove('active');
+  void dmg.offsetWidth;
+  dmg.classList.add('active');
+
+  // 画面フラッシュ
+  const flash = document.getElementById('hit-flash');
+  flash.classList.remove('active');
+  void flash.offsetWidth;
+  flash.classList.add('active');
+}
+
 /* ===== 回答処理 ===== */
 function handleAnswer(val, btn) {
   if (!answering) return;
@@ -563,6 +628,9 @@ function handleAnswer(val, btn) {
     const emojiEl = document.getElementById('monster-emoji');
     emojiEl.classList.add('hit');
     setTimeout(() => emojiEl.classList.remove('hit'), 400);
+
+    // 攻撃エフェクト
+    playAttackEffect();
 
     if (monsterCurrentHP <= 0) {
       // モンスター撃破
