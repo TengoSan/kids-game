@@ -113,6 +113,10 @@ body {
 .result-monster { font-size: 2.2rem; animation: fadeIn 0.5s backwards; }
 .retry-btn { background: linear-gradient(135deg, #f1c40f, #f39c12); font-size: 1.2rem; }
 .home-btn { background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); }
+.top-link { color: rgba(255,255,255,0.7); font-size: 0.95rem; text-decoration: none; margin-top: 4px; }
+.top-link:active { opacity: 0.5; }
+.exit-btn { position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.25); color: rgba(255,255,255,0.8); border: none; border-radius: 10px; padding: 6px 14px; font-size: 0.85rem; font-family: inherit; cursor: pointer; z-index: 20; }
+.exit-btn:active { opacity: 0.6; }
 
 /* === 図鑑画面 === */
 #zukan-screen { gap: 12px; overflow-y: auto; justify-content: flex-start; padding-top: 40px; }
@@ -241,10 +245,12 @@ body {
 
   <button class="btn start-btn" id="start-btn">バトルかいし！</button>
   <button class="btn zukan-btn" id="zukan-open-btn">📖 モンスターずかん</button>
+  <a class="top-link" href="../">🏠 トップにもどる</a>
 </div>
 
 <!-- ゲーム画面 -->
 <div id="game-screen" class="screen">
+  <button class="exit-btn" id="exit-btn">✕ やめる</button>
   <div class="player-hp" id="player-hp"></div>
   <div class="monster-area">
     <div class="attack-slash" id="attack-slash">⚔️</div>
@@ -751,6 +757,9 @@ document.getElementById('zukan-open-btn').addEventListener('click', () => {
   showScreen('zukan-screen');
 });
 document.getElementById('zukan-back-btn').addEventListener('click', () => showScreen('start-screen'));
+document.getElementById('exit-btn').addEventListener('click', () => {
+  if (confirm('バトルをやめてもどりますか？')) showScreen('start-screen');
+});
 
 /* ===== PWA ===== */
 if ('serviceWorker' in navigator) {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'seikatsu-v1';
+const CACHE_NAME = 'seikatsu-v2';
 const ASSETS = [
   './',
   './index.html',

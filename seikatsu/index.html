@@ -138,6 +138,9 @@ body.night { background: linear-gradient(180deg, #a18cd1, #fbc2eb, #2d1b69); col
 .char-option.selected { border-color: #e67e22; background: rgba(255,255,255,0.6); transform: scale(1.1); }
 .char-option:active { transform: scale(0.95); }
 .char-back-btn { background: rgba(0,0,0,0.08); color: inherit; }
+.top-link { color: rgba(0,0,0,0.4); font-size: 0.95rem; text-decoration: none; margin-top: 4px; }
+.top-link:active { opacity: 0.5; }
+body.night .top-link { color: rgba(255,255,255,0.5); }
 
 /* === アニメーション === */
 @keyframes fadeIn {
@@ -182,6 +185,7 @@ body.night { background: linear-gradient(180deg, #a18cd1, #fbc2eb, #2d1b69); col
     <button class="btn calendar-btn" id="calendar-open-btn">📅 カレンダー</button>
     <button class="btn char-btn" id="char-open-btn">🐾 キャラ</button>
   </div>
+  <a class="top-link" href="../">🏠 トップにもどる</a>
 </div>
 
 <!-- ルーティン画面 -->
