@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<title>せいかつリズム</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  background: linear-gradient(180deg, #ffecd2, #fcb69f);
+  color: #5d4037;
+  transition: background 0.6s ease;
+}
+body.morning { background: linear-gradient(180deg, #ffecd2, #fcb69f); }
+body.afternoon { background: linear-gradient(180deg, #a1c4fd, #c2e9fb); color: #1a237e; }
+body.night { background: linear-gradient(180deg, #a18cd1, #fbc2eb, #2d1b69); color: #fff; }
+
+/* === 画面管理 === */
+.screen { display: none; flex-direction: column; align-items: center; width: 100%; height: 100%; position: absolute; top: 0; left: 0; padding: 20px; overflow-y: auto; }
+.screen.active { display: flex; }
+
+/* === ボタン共通 === */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 14px 28px; border: none; border-radius: 16px;
+  font-size: 1.1rem; font-weight: bold; font-family: inherit;
+  cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.btn:active { transform: scale(0.95); }
+
+/* === スタート画面 === */
+#start-screen { gap: 14px; justify-content: center; }
+.character-display { font-size: 4rem; }
+.greeting { font-size: 1.3rem; font-weight: bold; text-align: center; line-height: 1.5; }
+.greeting-sub { font-size: 0.95rem; opacity: 0.7; }
+
+.period-btns { display: flex; gap: 10px; width: 100%; max-width: 360px; justify-content: center; }
+.period-btn {
+  flex: 1; padding: 18px 8px; border: 3px solid rgba(0,0,0,0.1); border-radius: 18px;
+  font-size: 1.1rem; font-weight: bold; font-family: inherit; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transition: all 0.2s;
+}
+.period-btn .period-emoji { font-size: 2rem; }
+.period-btn.morning-btn { background: linear-gradient(135deg, #ffecd2, #fcb69f); color: #5d4037; }
+.period-btn.afternoon-btn { background: linear-gradient(135deg, #a1c4fd, #c2e9fb); color: #1a237e; }
+.period-btn.night-btn { background: linear-gradient(135deg, #a18cd1, #fbc2eb); color: #4a148c; }
+.period-btn:active { transform: scale(0.95); }
+
+.bottom-btns { display: flex; gap: 10px; margin-top: 4px; }
+.calendar-btn { background: rgba(0,0,0,0.08); color: inherit; font-size: 1rem; padding: 10px 20px; }
+.char-btn { background: rgba(0,0,0,0.08); color: inherit; font-size: 1rem; padding: 10px 20px; }
+
+/* === ルーティン画面 === */
+#routine-screen { gap: 12px; padding-top: 16px; }
+.routine-header { display: flex; align-items: center; gap: 10px; }
+.routine-title { font-size: 1.4rem; font-weight: bold; }
+.routine-back { background: none; border: none; font-size: 1.5rem; cursor: pointer; padding: 4px 8px; }
+
+.progress-ring-container { position: relative; width: 120px; height: 120px; margin: 4px 0; }
+.progress-ring { transform: rotate(-90deg); }
+.progress-ring-bg { fill: none; stroke: rgba(0,0,0,0.1); stroke-width: 8; }
+.progress-ring-fill { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 0.5s ease; }
+.morning .progress-ring-fill { stroke: #e67e22; }
+.afternoon .progress-ring-fill { stroke: #3498db; }
+.night .progress-ring-fill { stroke: #9b59b6; }
+.progress-text {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 1.5rem; font-weight: bold;
+}
+
+.task-list { width: 100%; max-width: 380px; display: flex; flex-direction: column; gap: 8px; padding-bottom: 20px; }
+.task-card {
+  display: flex; align-items: center; gap: 12px; padding: 14px 16px;
+  border-radius: 16px; background: rgba(255,255,255,0.5); cursor: pointer;
+  transition: all 0.3s; border: 2px solid transparent;
+}
+.task-card:active { transform: scale(0.98); }
+.task-card.done { background: rgba(255,255,255,0.8); border-color: rgba(0,0,0,0.1); }
+.task-emoji { font-size: 1.6rem; }
+.task-name { font-size: 1.1rem; font-weight: bold; flex: 1; }
+.task-check {
+  width: 32px; height: 32px; border-radius: 50%; border: 3px solid rgba(0,0,0,0.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; transition: all 0.3s; background: transparent;
+}
+.task-card.done .task-check { background: #27ae60; border-color: #27ae60; }
+.task-card.done .task-name { text-decoration: line-through; opacity: 0.6; }
+
+.celebration { display: none; font-size: 1.2rem; text-align: center; font-weight: bold; animation: fadeIn 0.5s; }
+.celebration.show { display: block; }
+
+/* === カレンダー画面 === */
+#calendar-screen { gap: 14px; justify-content: flex-start; padding-top: 40px; }
+.calendar-title { font-size: 1.4rem; font-weight: bold; }
+.streak-badge { font-size: 1.1rem; padding: 6px 16px; border-radius: 20px; background: rgba(0,0,0,0.08); }
+.calendar-grid {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
+  width: 100%; max-width: 380px;
+}
+.calendar-day {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 4px; border-radius: 12px; background: rgba(255,255,255,0.3);
+}
+.calendar-day.today { background: rgba(255,255,255,0.6); border: 2px solid rgba(0,0,0,0.15); }
+.day-label { font-size: 0.75rem; font-weight: bold; }
+.day-date { font-size: 0.85rem; }
+.day-dots { display: flex; gap: 3px; }
+.day-dot { width: 10px; height: 10px; border-radius: 50%; }
+.dot-morning { background: #e67e22; }
+.dot-afternoon { background: #3498db; }
+.dot-night { background: #9b59b6; }
+.dot-empty { background: rgba(0,0,0,0.1); }
+.day-stamp { font-size: 1.2rem; }
+.calendar-back-btn { background: rgba(0,0,0,0.08); color: inherit; margin-top: 8px; }
+
+/* === キャラ選択画面 === */
+#character-screen { gap: 16px; justify-content: center; }
+.char-title { font-size: 1.4rem; font-weight: bold; }
+.char-grid { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.char-option {
+  font-size: 3rem; padding: 12px; border-radius: 18px; border: 3px solid rgba(0,0,0,0.1);
+  background: rgba(255,255,255,0.3); cursor: pointer; transition: all 0.2s;
+}
+.char-option.selected { border-color: #e67e22; background: rgba(255,255,255,0.6); transform: scale(1.1); }
+.char-option:active { transform: scale(0.95); }
+.char-back-btn { background: rgba(0,0,0,0.08); color: inherit; }
+
+/* === アニメーション === */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+@keyframes confetti {
+  0% { opacity: 1; transform: translateY(0) rotate(0); }
+  100% { opacity: 0; transform: translateY(-60px) rotate(360deg); }
+}
+</style>
+</head>
+<body class="morning">
+
+<!-- スタート画面 -->
+<div id="start-screen" class="screen active">
+  <div class="character-display" id="character-display">🐱</div>
+  <div class="greeting" id="greeting">おはよう！</div>
+  <div class="greeting-sub">きょうも がんばろう！</div>
+
+  <div class="period-btns">
+    <button class="period-btn morning-btn" data-period="morning">
+      <span class="period-emoji">🌅</span>
+      あさ
+    </button>
+    <button class="period-btn afternoon-btn" data-period="afternoon">
+      <span class="period-emoji">☀️</span>
+      ひる
+    </button>
+    <button class="period-btn night-btn" data-period="night">
+      <span class="period-emoji">🌙</span>
+      よる
+    </button>
+  </div>
+
+  <div class="bottom-btns">
+    <button class="btn calendar-btn" id="calendar-open-btn">📅 カレンダー</button>
+    <button class="btn char-btn" id="char-open-btn">🐾 キャラ</button>
+  </div>
+</div>
+
+<!-- ルーティン画面 -->
+<div id="routine-screen" class="screen">
+  <div class="routine-header">
+    <button class="routine-back" id="routine-back-btn">←</button>
+    <div class="routine-title" id="routine-title"></div>
+  </div>
+
+  <div class="progress-ring-container">
+    <svg class="progress-ring" width="120" height="120">
+      <circle class="progress-ring-bg" cx="60" cy="60" r="52"/>
+      <circle class="progress-ring-fill" id="progress-fill" cx="60" cy="60" r="52"/>
+    </svg>
+    <div class="progress-text" id="progress-text">0/0</div>
+  </div>
+
+  <div class="task-list" id="task-list"></div>
+  <div class="celebration" id="celebration">🎉 ぜんぶ できたね！すごい！🎉</div>
+</div>
+
+<!-- カレンダー画面 -->
+<div id="calendar-screen" class="screen">
+  <h2 class="calendar-title">📅 カレンダー</h2>
+  <div class="streak-badge" id="streak-badge">🔥 れんぞく 0 にち</div>
+  <div class="calendar-grid" id="calendar-grid"></div>
+  <button class="btn calendar-back-btn" id="calendar-back-btn">もどる</button>
+</div>
+
+<!-- キャラ選択画面 -->
+<div id="character-screen" class="screen">
+  <h2 class="char-title">キャラクターをえらぼう！</h2>
+  <div class="char-grid" id="char-grid"></div>
+  <button class="btn char-back-btn" id="char-back-btn">もどる</button>
+</div>
+
+<script>
+/* ===== 定数 ===== */
+const CHARACTERS = ['🐱', '🐶', '🐰', '🐻', '🐼'];
+
+const ROUTINES = {
+  morning: {
+    title: 'あさのルーティン 🌅',
+    tasks: [
+      { id: 'wake',    emoji: '⏰', name: 'おきる' },
+      { id: 'dress',   emoji: '👕', name: 'きがえる' },
+      { id: 'brush',   emoji: '🪥', name: 'はをみがく' },
+      { id: 'bfast',   emoji: '🍚', name: 'あさごはん' },
+      { id: 'bag',     emoji: '🎒', name: 'もちものチェック' },
+      { id: 'go',      emoji: '👋', name: 'いってきます' },
+    ],
+  },
+  afternoon: {
+    title: 'ひるのルーティン ☀️',
+    tasks: [
+      { id: 'wash',    emoji: '🧼', name: 'てあらい' },
+      { id: 'lunch',   emoji: '🍱', name: 'おひるごはん' },
+      { id: 'clean',   emoji: '🧹', name: 'おかたづけ' },
+      { id: 'study',   emoji: '📖', name: 'おべんきょう' },
+    ],
+  },
+  night: {
+    title: 'よるのルーティン 🌙',
+    tasks: [
+      { id: 'bath',    emoji: '🛁', name: 'おふろ' },
+      { id: 'dinner',  emoji: '🍽️', name: 'ばんごはん' },
+      { id: 'brush2',  emoji: '🪥', name: 'はみがき' },
+      { id: 'prep',    emoji: '🎒', name: 'あしたのじゅんび' },
+      { id: 'sleep',   emoji: '😴', name: 'おやすみ' },
+    ],
+  },
+};
+
+const DAY_NAMES = ['にち', 'げつ', 'か', 'すい', 'もく', 'きん', 'ど'];
+
+/* ===== 状態 ===== */
+let currentPeriod = null;
+let selectedChar = '🐱';
+
+/* ===== オーディオ ===== */
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function ensureAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
+
+function playTone(freq, dur, type = 'sine', vol = 0.12) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + dur);
+}
+
+function sfxCheck() {
+  ensureAudio();
+  playTone(523, 0.15, 'sine', 0.12);
+  setTimeout(() => playTone(784, 0.2, 'sine', 0.12), 100);
+}
+
+function sfxUncheck() {
+  ensureAudio();
+  playTone(440, 0.15, 'triangle', 0.08);
+}
+
+function sfxComplete() {
+  ensureAudio();
+  [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => {
+    setTimeout(() => playTone(f, 0.3, 'sine', 0.1), i * 100);
+  });
+}
+
+/* ===== 画面管理 ===== */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ===== 日付ユーティリティ ===== */
+function getDateKey(date) {
+  const d = date || new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/* ===== データ永続化 ===== */
+function getData() {
+  try {
+    return JSON.parse(localStorage.getItem('seikatsu_data') || '{}');
+  } catch { return {}; }
+}
+
+function saveData(data) {
+  localStorage.setItem('seikatsu_data', JSON.stringify(data));
+}
+
+function getSettings() {
+  try {
+    return JSON.parse(localStorage.getItem('seikatsu_settings') || '{}');
+  } catch { return {}; }
+}
+
+function saveSettings(settings) {
+  localStorage.setItem('seikatsu_settings', JSON.stringify(settings));
+}
+
+function isTaskDone(dateKey, period, taskId) {
+  const data = getData();
+  return !!(data[dateKey] && data[dateKey][period] && data[dateKey][period][taskId]);
+}
+
+function toggleTask(dateKey, period, taskId) {
+  const data = getData();
+  if (!data[dateKey]) data[dateKey] = {};
+  if (!data[dateKey][period]) data[dateKey][period] = {};
+  data[dateKey][period][taskId] = !data[dateKey][period][taskId];
+  saveData(data);
+  return data[dateKey][period][taskId];
+}
+
+function isPeriodComplete(dateKey, period) {
+  const tasks = ROUTINES[period].tasks;
+  return tasks.every(t => isTaskDone(dateKey, period, t.id));
+}
+
+/* ===== 挨拶 ===== */
+function updateGreeting() {
+  const hour = new Date().getHours();
+  const el = document.getElementById('greeting');
+  if (hour >= 5 && hour < 12) {
+    el.textContent = 'おはよう！';
+    document.body.className = 'morning';
+  } else if (hour >= 12 && hour < 18) {
+    el.textContent = 'こんにちは！';
+    document.body.className = 'afternoon';
+  } else {
+    el.textContent = 'こんばんは！';
+    document.body.className = 'night';
+  }
+}
+
+/* ===== テーマ切替 ===== */
+function setTheme(period) {
+  document.body.className = period === 'morning' ? 'morning' : period === 'afternoon' ? 'afternoon' : 'night';
+}
+
+/* ===== ルーティン画面 ===== */
+let taskDebounce = false;
+
+function openRoutine(period) {
+  currentPeriod = period;
+  setTheme(period);
+  document.getElementById('routine-title').textContent = ROUTINES[period].title;
+  showScreen('routine-screen');
+  renderTasks();
+}
+
+function renderTasks() {
+  const dateKey = getDateKey();
+  const tasks = ROUTINES[currentPeriod].tasks;
+  const list = document.getElementById('task-list');
+  list.innerHTML = '';
+
+  let doneCount = 0;
+
+  tasks.forEach(t => {
+    const done = isTaskDone(dateKey, currentPeriod, t.id);
+    if (done) doneCount++;
+
+    const card = document.createElement('div');
+    card.className = 'task-card' + (done ? ' done' : '');
+    card.innerHTML = `
+      <span class="task-emoji">${t.emoji}</span>
+      <span class="task-name">${t.name}</span>
+      <span class="task-check">${done ? '✓' : ''}</span>
+    `;
+    card.addEventListener('click', () => {
+      if (taskDebounce) return;
+      taskDebounce = true;
+      setTimeout(() => { taskDebounce = false; }, 300);
+
+      ensureAudio();
+      const nowDone = toggleTask(dateKey, currentPeriod, t.id);
+      if (nowDone) sfxCheck(); else sfxUncheck();
+      renderTasks();
+    });
+    list.appendChild(card);
+  });
+
+  // プログレスリング更新
+  updateProgress(doneCount, tasks.length);
+
+  // 全完了チェック
+  const celeb = document.getElementById('celebration');
+  if (doneCount === tasks.length) {
+    celeb.classList.add('show');
+    if (!celeb.dataset.played) {
+      sfxComplete();
+      celeb.dataset.played = 'true';
+    }
+  } else {
+    celeb.classList.remove('show');
+    celeb.dataset.played = '';
+  }
+}
+
+function updateProgress(done, total) {
+  const fill = document.getElementById('progress-fill');
+  const text = document.getElementById('progress-text');
+  const circumference = 2 * Math.PI * 52; // r=52
+  fill.style.strokeDasharray = circumference;
+  const offset = circumference - (done / total) * circumference;
+  fill.style.strokeDashoffset = offset;
+  text.textContent = `${done}/${total}`;
+}
+
+/* ===== カレンダー画面 ===== */
+function renderCalendar() {
+  const grid = document.getElementById('calendar-grid');
+  grid.innerHTML = '';
+  const today = new Date();
+  const todayKey = getDateKey(today);
+
+  // 過去7日間（今日含む）
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const key = getDateKey(d);
+    const isToday = key === todayKey;
+
+    const dayEl = document.createElement('div');
+    dayEl.className = 'calendar-day' + (isToday ? ' today' : '');
+
+    const label = document.createElement('div');
+    label.className = 'day-label';
+    label.textContent = DAY_NAMES[d.getDay()];
+
+    const date = document.createElement('div');
+    date.className = 'day-date';
+    date.textContent = d.getDate();
+
+    const dots = document.createElement('div');
+    dots.className = 'day-dots';
+
+    const periods = ['morning', 'afternoon', 'night'];
+    const dotClasses = ['dot-morning', 'dot-afternoon', 'dot-night'];
+    let allComplete = true;
+
+    periods.forEach((p, idx) => {
+      const dot = document.createElement('div');
+      dot.className = 'day-dot';
+      if (isPeriodComplete(key, p)) {
+        dot.classList.add(dotClasses[idx]);
+      } else {
+        dot.classList.add('dot-empty');
+        allComplete = false;
+      }
+      dots.appendChild(dot);
+    });
+
+    dayEl.appendChild(label);
+    dayEl.appendChild(date);
+    dayEl.appendChild(dots);
+
+    if (allComplete) {
+      const stamp = document.createElement('div');
+      stamp.className = 'day-stamp';
+      stamp.textContent = '💮';
+      dayEl.appendChild(stamp);
+    }
+
+    grid.appendChild(dayEl);
+  }
+
+  // ストリーク計算
+  let streak = 0;
+  for (let i = 0; i < 30; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const key = getDateKey(d);
+    const allDone = ['morning', 'afternoon', 'night'].every(p => isPeriodComplete(key, p));
+    if (allDone) streak++;
+    else break;
+  }
+  document.getElementById('streak-badge').textContent = `🔥 れんぞく ${streak} にち`;
+}
+
+/* ===== キャラ選択画面 ===== */
+function renderCharacters() {
+  const grid = document.getElementById('char-grid');
+  grid.innerHTML = '';
+  CHARACTERS.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'char-option' + (c === selectedChar ? ' selected' : '');
+    btn.textContent = c;
+    btn.addEventListener('click', () => {
+      selectedChar = c;
+      saveSettings({ character: c });
+      document.getElementById('character-display').textContent = c;
+      renderCharacters();
+      ensureAudio();
+      playTone(660, 0.15, 'sine', 0.1);
+      setTimeout(() => playTone(880, 0.2, 'sine', 0.1), 100);
+    });
+    grid.appendChild(btn);
+  });
+}
+
+/* ===== イベント ===== */
+document.querySelectorAll('.period-btn').forEach(btn => {
+  btn.addEventListener('click', () => openRoutine(btn.dataset.period));
+});
+
+document.getElementById('routine-back-btn').addEventListener('click', () => {
+  updateGreeting();
+  showScreen('start-screen');
+});
+
+document.getElementById('calendar-open-btn').addEventListener('click', () => {
+  renderCalendar();
+  showScreen('calendar-screen');
+});
+document.getElementById('calendar-back-btn').addEventListener('click', () => showScreen('start-screen'));
+
+document.getElementById('char-open-btn').addEventListener('click', () => {
+  renderCharacters();
+  showScreen('character-screen');
+});
+document.getElementById('char-back-btn').addEventListener('click', () => showScreen('start-screen'));
+
+/* ===== 初期化 ===== */
+function init() {
+  const settings = getSettings();
+  if (settings.character) {
+    selectedChar = settings.character;
+    document.getElementById('character-display').textContent = selectedChar;
+  }
+  updateGreeting();
+}
+
+init();
+
+/* ===== PWA ===== */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

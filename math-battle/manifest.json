@@ -1,0 +1,9 @@
+{
+  "name": "たしざんひきざんバトル",
+  "short_name": "さんすうバトル",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#c0392b",
+  "theme_color": "#c0392b"
+}

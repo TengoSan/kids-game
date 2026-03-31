@@ -1,0 +1,9 @@
+{
+  "name": "せいかつリズム",
+  "short_name": "せいかつ",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffecd2",
+  "theme_color": "#f6d365"
+}

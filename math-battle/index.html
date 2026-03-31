@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<title>たしざんひきざんバトル</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  background: linear-gradient(135deg, #c0392b, #e74c3c, #f39c12);
+  color: #fff;
+}
+
+/* === 画面管理 === */
+.screen { display: none; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; position: absolute; top: 0; left: 0; padding: 20px; }
+.screen.active { display: flex; }
+
+/* === ボタン共通 === */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 14px 28px; border: none; border-radius: 16px;
+  font-size: 1.2rem; font-weight: bold; font-family: inherit;
+  cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  color: #fff;
+}
+.btn:active { transform: scale(0.95); }
+
+/* === スタート画面 === */
+#start-screen { gap: 16px; }
+.title { font-size: 2rem; text-shadow: 2px 2px 6px rgba(0,0,0,0.3); }
+.title-emoji { font-size: 3rem; display: block; margin-bottom: 8px; }
+.subtitle { font-size: 1rem; opacity: 0.9; margin-bottom: 8px; }
+
+.mode-section, .diff-section { width: 100%; max-width: 360px; text-align: center; }
+.section-label { font-size: 0.95rem; margin-bottom: 8px; opacity: 0.85; }
+.mode-btns, .diff-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.mode-btn, .diff-btn {
+  flex: 1; min-width: 90px; padding: 12px 8px; border: 3px solid rgba(255,255,255,0.4);
+  border-radius: 14px; background: rgba(255,255,255,0.15); color: #fff;
+  font-size: 1rem; font-weight: bold; font-family: inherit; cursor: pointer;
+  transition: all 0.2s;
+}
+.mode-btn.selected, .diff-btn.selected {
+  background: rgba(255,255,255,0.95); color: #c0392b;
+  border-color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+
+.start-btn { background: linear-gradient(135deg, #f1c40f, #f39c12); font-size: 1.4rem; padding: 16px 48px; margin-top: 8px; }
+.zukan-btn { background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); font-size: 1rem; padding: 10px 24px; }
+
+/* === ゲーム画面 === */
+#game-screen { justify-content: space-between; padding: 16px; gap: 8px; }
+
+.player-hp { display: flex; gap: 6px; font-size: 1.8rem; }
+.heart { transition: transform 0.3s, opacity 0.3s; }
+.heart.lost { opacity: 0.2; transform: scale(0.7); }
+
+.monster-area {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1;
+  justify-content: center; min-height: 0;
+}
+.monster-emoji { font-size: 5rem; transition: transform 0.3s; }
+.monster-emoji.hit { animation: monsterHit 0.4s; }
+.monster-emoji.defeated { animation: monsterDefeat 0.8s forwards; }
+.monster-name { font-size: 1.1rem; font-weight: bold; }
+.monster-hp-bar {
+  width: 80%; max-width: 280px; height: 16px; background: rgba(0,0,0,0.3);
+  border-radius: 8px; overflow: hidden;
+}
+.monster-hp-fill {
+  height: 100%; background: linear-gradient(90deg, #2ecc71, #27ae60);
+  border-radius: 8px; transition: width 0.4s ease;
+}
+
+.question-area { text-align: center; width: 100%; }
+.question-text { font-size: 1.8rem; font-weight: bold; text-shadow: 1px 1px 4px rgba(0,0,0,0.3); margin-bottom: 4px; }
+.question-count { font-size: 0.85rem; opacity: 0.7; }
+
+.choices {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  width: 100%; max-width: 360px; padding-bottom: env(safe-area-inset-bottom, 8px);
+}
+.choice-btn {
+  padding: 16px 8px; border: 3px solid rgba(255,255,255,0.5);
+  border-radius: 16px; background: rgba(255,255,255,0.2); color: #fff;
+  font-size: 1.6rem; font-weight: bold; font-family: inherit; cursor: pointer;
+  transition: all 0.2s; min-height: 60px;
+}
+.choice-btn:active { transform: scale(0.95); }
+.choice-btn.correct { background: #27ae60; border-color: #27ae60; animation: pop 0.4s; }
+.choice-btn.wrong { background: #e74c3c; border-color: #e74c3c; animation: shake 0.4s; }
+.choice-btn.disabled { pointer-events: none; opacity: 0.5; }
+
+/* === 結果画面 === */
+#result-screen { gap: 16px; }
+.result-title { font-size: 1.8rem; }
+.result-stars { font-size: 3rem; margin: 8px 0; }
+.result-score { font-size: 1.2rem; opacity: 0.9; }
+.result-monsters { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 8px 0; }
+.result-monster { font-size: 2.2rem; animation: fadeIn 0.5s backwards; }
+.retry-btn { background: linear-gradient(135deg, #f1c40f, #f39c12); font-size: 1.2rem; }
+.home-btn { background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); }
+
+/* === 図鑑画面 === */
+#zukan-screen { gap: 12px; overflow-y: auto; justify-content: flex-start; padding-top: 40px; }
+.zukan-title { font-size: 1.5rem; }
+.zukan-count { font-size: 0.95rem; opacity: 0.8; }
+.zukan-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
+  width: 100%; max-width: 360px; padding-bottom: 20px;
+}
+.zukan-card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 12px 4px; border-radius: 14px;
+  background: rgba(255,255,255,0.15); transition: all 0.3s;
+}
+.zukan-card.discovered { background: rgba(255,255,255,0.3); }
+.zukan-card.undiscovered { opacity: 0.4; }
+.zukan-emoji { font-size: 2.2rem; }
+.zukan-name { font-size: 0.8rem; }
+.zukan-back-btn { background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); margin-bottom: 20px; }
+
+/* === アニメーション === */
+@keyframes pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes monsterHit {
+  0% { transform: scale(1); }
+  30% { transform: scale(0.85) rotate(-5deg); }
+  60% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+@keyframes monsterDefeat {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3) rotate(10deg); opacity: 0.6; }
+  100% { transform: scale(0) rotate(30deg); opacity: 0; }
+}
+@keyframes monsterAppear {
+  0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+  60% { transform: scale(1.2) rotate(5deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes sparkle {
+  0% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(2) translateY(-30px); }
+}
+</style>
+</head>
+<body>
+
+<!-- スタート画面 -->
+<div id="start-screen" class="screen active">
+  <span class="title-emoji">⚔️</span>
+  <h1 class="title">たしざんひきざん<br>バトル</h1>
+  <p class="subtitle">さんすうでモンスターをたおそう！</p>
+
+  <div class="mode-section">
+    <div class="section-label">もんだいのしゅるい</div>
+    <div class="mode-btns">
+      <button class="mode-btn selected" data-mode="add">たしざん</button>
+      <button class="mode-btn" data-mode="sub">ひきざん</button>
+      <button class="mode-btn" data-mode="mix">ミックス</button>
+    </div>
+  </div>
+
+  <div class="diff-section">
+    <div class="section-label">むずかしさ</div>
+    <div class="diff-btns">
+      <button class="diff-btn selected" data-diff="easy">かんたん</button>
+      <button class="diff-btn" data-diff="normal">ふつう</button>
+      <button class="diff-btn" data-diff="hard">むずかしい</button>
+    </div>
+  </div>
+
+  <button class="btn start-btn" id="start-btn">バトルかいし！</button>
+  <button class="btn zukan-btn" id="zukan-open-btn">📖 モンスターずかん</button>
+</div>
+
+<!-- ゲーム画面 -->
+<div id="game-screen" class="screen">
+  <div class="player-hp" id="player-hp"></div>
+  <div class="monster-area">
+    <div class="monster-emoji" id="monster-emoji"></div>
+    <div class="monster-name" id="monster-name"></div>
+    <div class="monster-hp-bar"><div class="monster-hp-fill" id="monster-hp-fill"></div></div>
+  </div>
+  <div class="question-area">
+    <div class="question-text" id="question-text"></div>
+    <div class="question-count" id="question-count"></div>
+  </div>
+  <div class="choices" id="choices"></div>
+</div>
+
+<!-- 結果画面 -->
+<div id="result-screen" class="screen">
+  <div class="result-title" id="result-title"></div>
+  <div class="result-stars" id="result-stars"></div>
+  <div class="result-score" id="result-score"></div>
+  <div class="result-monsters" id="result-monsters"></div>
+  <button class="btn retry-btn" id="retry-btn">もういちど あそぶ</button>
+  <button class="btn home-btn" id="home-btn">もどる</button>
+</div>
+
+<!-- 図鑑画面 -->
+<div id="zukan-screen" class="screen">
+  <h2 class="zukan-title">📖 モンスターずかん</h2>
+  <div class="zukan-count" id="zukan-count"></div>
+  <div class="zukan-grid" id="zukan-grid"></div>
+  <button class="btn zukan-back-btn" id="zukan-back-btn">もどる</button>
+</div>
+
+<script>
+/* ===== 定数 ===== */
+const MONSTERS = [
+  { id: 'slime',   emoji: '🟢', name: 'スライム',     hp: 2 },
+  { id: 'ghost',   emoji: '👻', name: 'おばけ',       hp: 2 },
+  { id: 'bat',     emoji: '🦇', name: 'コウモリ',     hp: 2 },
+  { id: 'spider',  emoji: '🕷️', name: 'くも',         hp: 2 },
+  { id: 'snake',   emoji: '🐍', name: 'へび',         hp: 2 },
+  { id: 'wolf',    emoji: '🐺', name: 'おおかみ',     hp: 3 },
+  { id: 'bear',    emoji: '🐻', name: 'くま',         hp: 3 },
+  { id: 'imp',     emoji: '👿', name: 'こあくま',     hp: 3 },
+  { id: 'oni',     emoji: '👹', name: 'おに',         hp: 3 },
+  { id: 'alien',   emoji: '👽', name: 'うちゅうじん', hp: 3 },
+  { id: 'robot',   emoji: '🤖', name: 'ロボット',     hp: 3 },
+  { id: 'wizard',  emoji: '🧙', name: 'まほうつかい', hp: 4 },
+  { id: 'dragon',  emoji: '🐉', name: 'ドラゴン',     hp: 4 },
+  { id: 'unicorn', emoji: '🦄', name: 'ユニコーン',   hp: 4 },
+  { id: 'phoenix', emoji: '🔥', name: 'フェニックス', hp: 5 },
+];
+
+const TOTAL_QUESTIONS = 10;
+
+const DIFF_SETTINGS = {
+  easy:   { minA: 1, maxA: 5,  minB: 1, maxB: 5  },
+  normal: { minA: 1, maxA: 9,  minB: 1, maxB: 9  },
+  hard:   { minA: 10, maxA: 50, minB: 1, maxB: 9  },
+};
+
+/* ===== 状態 ===== */
+let gameMode = 'add';    // add, sub, mix
+let difficulty = 'easy';
+let playerHP = 3;
+let currentMonster = null;
+let monsterCurrentHP = 0;
+let questionIndex = 0;
+let correctCount = 0;
+let currentAnswer = 0;
+let defeatedMonsters = [];  // このラウンドで倒したモンスター
+let monsterQueue = [];      // 出現予定モンスター
+let answering = false;
+
+/* ===== オーディオ ===== */
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function ensureAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
+
+function playTone(freq, dur, type = 'sine', vol = 0.15) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + dur);
+}
+
+function sfxBattleStart() {
+  ensureAudio();
+  [523, 659, 784, 1047].forEach((f, i) => {
+    setTimeout(() => playTone(f, 0.2, 'square', 0.12), i * 100);
+  });
+}
+
+function sfxCorrect() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(1600, audioCtx.currentTime + 0.15);
+  gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + 0.2);
+}
+
+function sfxWrong() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(280, audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(220, audioCtx.currentTime + 0.25);
+  gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+  osc.connect(gain); gain.connect(audioCtx.destination);
+  osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+}
+
+function sfxDefeat() {
+  ensureAudio();
+  [523, 659, 784, 1047, 1319].forEach((f, i) => {
+    setTimeout(() => playTone(f, 0.25, 'sine', 0.1), i * 80);
+  });
+}
+
+function sfxResult() {
+  ensureAudio();
+  [523, 587, 659, 784, 880, 1047].forEach((f, i) => {
+    setTimeout(() => playTone(f, 0.3, 'triangle', 0.12), i * 120);
+  });
+}
+
+function sfxGameOver() {
+  ensureAudio();
+  [440, 370, 311, 262].forEach((f, i) => {
+    setTimeout(() => playTone(f, 0.35, 'sawtooth', 0.1), i * 150);
+  });
+}
+
+/* ===== 画面管理 ===== */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+/* ===== モード/難易度選択 ===== */
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    gameMode = btn.dataset.mode;
+  });
+});
+
+document.querySelectorAll('.diff-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    difficulty = btn.dataset.diff;
+  });
+});
+
+/* ===== 問題生成 ===== */
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function generateQuestion() {
+  const settings = DIFF_SETTINGS[difficulty];
+  // モード決定
+  let isAdd;
+  if (gameMode === 'add') isAdd = true;
+  else if (gameMode === 'sub') isAdd = false;
+  else isAdd = Math.random() < 0.5;
+
+  let a, b, answer, text;
+  if (isAdd) {
+    a = randInt(settings.minA, settings.maxA);
+    b = randInt(settings.minB, settings.maxB);
+    answer = a + b;
+    text = `${a} + ${b} = ?`;
+  } else {
+    // 引き算: 答えが負にならないように
+    a = randInt(settings.minA, settings.maxA);
+    b = randInt(settings.minB, settings.maxB);
+    const sum = a + b;
+    answer = a; // sum - b = a
+    text = `${sum} − ${b} = ?`;
+  }
+
+  // 選択肢生成: 正解 + 3つのダミー
+  const choices = [answer];
+  const used = new Set([answer]);
+  let attempts = 0;
+  while (choices.length < 4 && attempts < 50) {
+    const offset = randInt(1, 3) * (Math.random() < 0.5 ? 1 : -1);
+    const dummy = answer + offset;
+    if (dummy >= 0 && !used.has(dummy)) {
+      choices.push(dummy);
+      used.add(dummy);
+    }
+    attempts++;
+  }
+  // 足りなければ埋める
+  let fill = 1;
+  while (choices.length < 4) {
+    if (!used.has(answer + fill)) { choices.push(answer + fill); used.add(answer + fill); }
+    else if (!used.has(Math.max(0, answer - fill))) { choices.push(Math.max(0, answer - fill)); used.add(Math.max(0, answer - fill)); }
+    fill++;
+  }
+
+  // Fisher-Yates シャッフル
+  for (let i = choices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [choices[i], choices[j]] = [choices[j], choices[i]];
+  }
+
+  return { text, answer, choices };
+}
+
+/* ===== モンスター選出 ===== */
+function buildMonsterQueue() {
+  // HP合計がTOTAL_QUESTIONS前後になるようにモンスターを選出
+  const queue = [];
+  let totalHP = 0;
+  const shuffled = [...MONSTERS];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  for (const m of shuffled) {
+    if (totalHP + m.hp <= TOTAL_QUESTIONS) {
+      queue.push({ ...m, currentHP: m.hp, maxHP: m.hp });
+      totalHP += m.hp;
+    }
+    if (totalHP >= TOTAL_QUESTIONS) break;
+  }
+  // HPが足りなければ弱いモンスターで埋める
+  while (totalHP < TOTAL_QUESTIONS) {
+    const weak = shuffled.find(m => m.hp <= TOTAL_QUESTIONS - totalHP && !queue.find(q => q.id === m.id));
+    if (weak) {
+      queue.push({ ...weak, currentHP: weak.hp, maxHP: weak.hp });
+      totalHP += weak.hp;
+    } else {
+      // 最終手段: HP2のスライムを複製
+      queue.push({ ...MONSTERS[0], currentHP: MONSTERS[0].hp, maxHP: MONSTERS[0].hp, id: MONSTERS[0].id + '_' + totalHP });
+      totalHP += MONSTERS[0].hp;
+    }
+  }
+  return queue;
+}
+
+/* ===== ゲーム開始 ===== */
+function startGame() {
+  sfxBattleStart();
+  playerHP = 3;
+  questionIndex = 0;
+  correctCount = 0;
+  defeatedMonsters = [];
+  monsterQueue = buildMonsterQueue();
+  answering = false;
+  showScreen('game-screen');
+  renderHP();
+  nextMonster();
+}
+
+/* ===== HP描画 ===== */
+function renderHP() {
+  const container = document.getElementById('player-hp');
+  container.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const span = document.createElement('span');
+    span.className = 'heart' + (i >= playerHP ? ' lost' : '');
+    span.textContent = '❤️';
+    container.appendChild(span);
+  }
+}
+
+/* ===== モンスター管理 ===== */
+function nextMonster() {
+  if (monsterQueue.length === 0 || questionIndex >= TOTAL_QUESTIONS) {
+    endGame();
+    return;
+  }
+  currentMonster = monsterQueue.shift();
+  monsterCurrentHP = currentMonster.maxHP;
+
+  const emojiEl = document.getElementById('monster-emoji');
+  emojiEl.textContent = currentMonster.emoji;
+  emojiEl.style.animation = 'none';
+  void emojiEl.offsetWidth; // リフロー
+  emojiEl.style.animation = 'monsterAppear 0.5s ease-out';
+  emojiEl.className = 'monster-emoji';
+
+  document.getElementById('monster-name').textContent = currentMonster.name;
+  updateMonsterHP();
+  showQuestion();
+}
+
+function updateMonsterHP() {
+  const fill = document.getElementById('monster-hp-fill');
+  const pct = (monsterCurrentHP / currentMonster.maxHP) * 100;
+  fill.style.width = pct + '%';
+}
+
+/* ===== 問題表示 ===== */
+function showQuestion() {
+  if (questionIndex >= TOTAL_QUESTIONS) {
+    endGame();
+    return;
+  }
+
+  const q = generateQuestion();
+  currentAnswer = q.answer;
+
+  document.getElementById('question-text').textContent = q.text;
+  document.getElementById('question-count').textContent = `${questionIndex + 1} / ${TOTAL_QUESTIONS} もん`;
+
+  const choicesEl = document.getElementById('choices');
+  choicesEl.innerHTML = '';
+  q.choices.forEach(val => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = val;
+    btn.addEventListener('click', () => handleAnswer(val, btn));
+    choicesEl.appendChild(btn);
+  });
+  answering = true;
+}
+
+/* ===== 回答処理 ===== */
+function handleAnswer(val, btn) {
+  if (!answering) return;
+  answering = false;
+  ensureAudio();
+
+  const allBtns = document.querySelectorAll('.choice-btn');
+
+  if (val === currentAnswer) {
+    // 正解
+    sfxCorrect();
+    btn.classList.add('correct');
+    allBtns.forEach(b => { if (b !== btn) b.classList.add('disabled'); });
+    correctCount++;
+    questionIndex++;
+
+    // モンスターにダメージ
+    monsterCurrentHP--;
+    updateMonsterHP();
+
+    const emojiEl = document.getElementById('monster-emoji');
+    emojiEl.classList.add('hit');
+    setTimeout(() => emojiEl.classList.remove('hit'), 400);
+
+    if (monsterCurrentHP <= 0) {
+      // モンスター撃破
+      setTimeout(() => {
+        sfxDefeat();
+        emojiEl.classList.add('defeated');
+        defeatedMonsters.push(currentMonster);
+        saveCollection(currentMonster.id);
+        setTimeout(() => nextMonster(), 900);
+      }, 500);
+    } else {
+      setTimeout(() => showQuestion(), 600);
+    }
+  } else {
+    // 不正解
+    sfxWrong();
+    btn.classList.add('wrong');
+    // 正解を緑に
+    allBtns.forEach(b => {
+      if (parseInt(b.textContent) === currentAnswer) b.classList.add('correct');
+      else if (b !== btn) b.classList.add('disabled');
+    });
+    playerHP--;
+    questionIndex++;
+    renderHP();
+
+    if (playerHP <= 0) {
+      setTimeout(() => {
+        sfxGameOver();
+        endGame();
+      }, 800);
+    } else {
+      setTimeout(() => showQuestion(), 1000);
+    }
+  }
+}
+
+/* ===== ゲーム終了 ===== */
+function endGame() {
+  sfxResult();
+  showScreen('result-screen');
+
+  const pct = Math.round((correctCount / TOTAL_QUESTIONS) * 100);
+  let stars = 0;
+  if (pct >= 90) stars = 3;
+  else if (pct >= 70) stars = 2;
+  else if (pct >= 50) stars = 1;
+
+  const isGameOver = playerHP <= 0;
+  document.getElementById('result-title').textContent = isGameOver ? 'ゲームオーバー…' : 'バトルしゅうりょう！';
+  document.getElementById('result-stars').textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+  document.getElementById('result-score').textContent = `${TOTAL_QUESTIONS}もんちゅう ${correctCount}もん せいかい！（${pct}%）`;
+
+  const monstersEl = document.getElementById('result-monsters');
+  monstersEl.innerHTML = '';
+  if (defeatedMonsters.length > 0) {
+    defeatedMonsters.forEach((m, i) => {
+      const span = document.createElement('span');
+      span.className = 'result-monster';
+      span.textContent = m.emoji;
+      span.style.animationDelay = (i * 0.15) + 's';
+      monstersEl.appendChild(span);
+    });
+  } else {
+    monstersEl.textContent = 'たおしたモンスター: なし';
+  }
+}
+
+/* ===== コレクション（図鑑） ===== */
+function getCollection() {
+  try {
+    return JSON.parse(localStorage.getItem('mathbattle_collection') || '[]');
+  } catch { return []; }
+}
+
+function saveCollection(monsterId) {
+  // _ 付きのID（複製モンスター）は元のIDに戻す
+  const baseId = monsterId.split('_')[0];
+  const col = getCollection();
+  if (!col.includes(baseId)) {
+    col.push(baseId);
+    localStorage.setItem('mathbattle_collection', JSON.stringify(col));
+  }
+}
+
+function renderZukan() {
+  const col = getCollection();
+  const grid = document.getElementById('zukan-grid');
+  grid.innerHTML = '';
+
+  MONSTERS.forEach(m => {
+    const card = document.createElement('div');
+    const discovered = col.includes(m.id);
+    card.className = 'zukan-card ' + (discovered ? 'discovered' : 'undiscovered');
+
+    const emoji = document.createElement('div');
+    emoji.className = 'zukan-emoji';
+    emoji.textContent = discovered ? m.emoji : '❓';
+
+    const name = document.createElement('div');
+    name.className = 'zukan-name';
+    name.textContent = discovered ? m.name : '？？？';
+
+    card.appendChild(emoji);
+    card.appendChild(name);
+    grid.appendChild(card);
+  });
+
+  document.getElementById('zukan-count').textContent = `${col.length} / ${MONSTERS.length} たい はっけん`;
+}
+
+/* ===== イベント ===== */
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('retry-btn').addEventListener('click', startGame);
+document.getElementById('home-btn').addEventListener('click', () => showScreen('start-screen'));
+document.getElementById('zukan-open-btn').addEventListener('click', () => {
+  renderZukan();
+  showScreen('zukan-screen');
+});
+document.getElementById('zukan-back-btn').addEventListener('click', () => showScreen('start-screen'));
+
+/* ===== PWA ===== */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
