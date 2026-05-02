@@ -103,14 +103,48 @@ h1 { font-size:1.8em; }
 .face-remove:active { transform:scale(0.9); }
 .face-remove:disabled { background:#dfe6e9; cursor:not-allowed; }
 
-.editor-actions { display:flex; gap:0.5em; }
+.editor-actions { display:flex; gap:0.5em; flex-wrap:wrap; }
 .editor-btn {
-  flex:1; padding:0.5em; border:none; border-radius:8px;
-  font-size:0.9em; font-weight:bold; cursor:pointer;
+  flex:1; min-width:90px; padding:0.5em; border:none; border-radius:8px;
+  font-size:0.85em; font-weight:bold; cursor:pointer;
 }
 .editor-btn.add { background:linear-gradient(135deg,#55efc4,#00b894); color:#fff; }
 .editor-btn.reset { background:#dfe6e9; color:#636e72; }
+.editor-btn.apply-all { background:linear-gradient(135deg,#a29bfe,#6c5ce7); color:#fff; }
 .editor-btn:active { transform:scale(0.96); }
+
+/* サイコロ選択タブ */
+.die-tabs {
+  display:flex; gap:0.3em; overflow-x:auto;
+  padding:0.3em 0; margin-bottom:0.7em;
+  -webkit-overflow-scrolling:touch;
+}
+.die-tabs::-webkit-scrollbar { height:4px; }
+.die-tabs::-webkit-scrollbar-thumb { background:#b2bec3; border-radius:2px; }
+.die-tab {
+  flex:0 0 auto; min-width:42px; height:42px;
+  padding:0 0.6em;
+  border:2px solid #dfe6e9; border-radius:10px;
+  background:#fff; color:#636e72;
+  font-size:0.9em; font-weight:bold; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; gap:0.25em;
+  transition:all 0.15s;
+}
+.die-tab.active {
+  background:linear-gradient(135deg,#fdcb6e,#e17055);
+  color:#fff; border-color:transparent;
+  box-shadow:0 2px 6px rgba(0,0,0,0.2);
+}
+.die-tab .tab-num { font-size:1em; }
+.die-tab .tab-preview {
+  font-size:0.7em; opacity:0.8;
+  max-width:48px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.die-tab.active .tab-preview { opacity:1; }
+.editor-current {
+  font-size:0.85em; color:#636e72; margin-bottom:0.5em;
+}
+.editor-current b { color:#e17055; }
 
 /* Rollボタン */
 .roll-btn {
@@ -251,13 +285,16 @@ h1 { font-size:1.8em; }
     </div>
   </div>
   <div id="custom-editor" style="display:none;">
+    <div class="die-tabs" id="die-tabs"></div>
+    <div class="editor-current">いま編集中: <b id="editor-current-label">サイコロ 1</b></div>
     <div class="faces-list" id="faces-list"></div>
     <div class="editor-actions">
       <button class="editor-btn add" id="add-face">＋ 面を追加</button>
-      <button class="editor-btn reset" id="reset-faces">リセット</button>
+      <button class="editor-btn reset" id="reset-faces">このサイコロをリセット</button>
+      <button class="editor-btn apply-all" id="apply-all">全部に適用</button>
     </div>
     <p style="font-size:0.8em;color:#636e72;margin-top:0.5em;">
-      ※ テキストでも数字でもOK！自由に書いてね
+      ※ テキストでも数字でもOK！サイコロごとに別の目を設定できるよ
     </p>
   </div>
 </div>
@@ -269,10 +306,15 @@ h1 { font-size:1.8em; }
 <div class="total hidden" id="total"></div>
 
 <script>
+const DEFAULT_FACES = () => ['1', '2', '3', '4', '5', '6'];
+const MIN_COUNT = 1, MAX_COUNT = 12;
+
 const state = {
   count: 2,
   mode: 'normal',
-  customFaces: ['1', '2', '3', '4', '5', '6'],
+  // サイコロごとの面: customFacesPerDie[i] が i番目のサイコロの面の配列
+  customFacesPerDie: Array.from({ length: MAX_COUNT }, DEFAULT_FACES),
+  selectedDie: 0,
   rolling: false,
 };
 
@@ -283,23 +325,27 @@ const els = {
   modeNormal: document.getElementById('mode-normal'),
   modeCustom: document.getElementById('mode-custom'),
   customEditor: document.getElementById('custom-editor'),
+  dieTabs: document.getElementById('die-tabs'),
+  editorCurrentLabel: document.getElementById('editor-current-label'),
   facesList: document.getElementById('faces-list'),
   addFace: document.getElementById('add-face'),
   resetFaces: document.getElementById('reset-faces'),
+  applyAll: document.getElementById('apply-all'),
   rollBtn: document.getElementById('roll-btn'),
   diceArea: document.getElementById('dice-area'),
   total: document.getElementById('total'),
 };
 
-const MIN_COUNT = 1, MAX_COUNT = 12;
-
 /* ========== サイコロ数 ========== */
 function updateCount(delta) {
   const next = Math.max(MIN_COUNT, Math.min(MAX_COUNT, state.count + delta));
   state.count = next;
+  if (state.selectedDie >= next) state.selectedDie = next - 1;
   els.countDisplay.textContent = next;
   els.countMinus.disabled = (next === MIN_COUNT);
   els.countPlus.disabled = (next === MAX_COUNT);
+  renderDieTabs();
+  renderFaces();
   renderEmptyDice();
 }
 els.countMinus.addEventListener('click', () => updateCount(-1));
@@ -311,51 +357,120 @@ function setMode(mode) {
   els.modeNormal.classList.toggle('active', mode === 'normal');
   els.modeCustom.classList.toggle('active', mode === 'custom');
   els.customEditor.style.display = (mode === 'custom') ? 'block' : 'none';
+  if (mode === 'custom') {
+    renderDieTabs();
+    renderFaces();
+  }
   renderEmptyDice();
 }
 els.modeNormal.addEventListener('click', () => setMode('normal'));
 els.modeCustom.addEventListener('click', () => setMode('custom'));
 
 /* ========== カスタム面エディタ ========== */
+function getCurrentFaces() {
+  return state.customFacesPerDie[state.selectedDie];
+}
+
+function previewText(faces) {
+  // タブに表示する短いプレビュー
+  const first = faces.find(f => f && f.trim() !== '');
+  if (!first) return '';
+  return first.length > 4 ? first.slice(0, 4) + '…' : first;
+}
+
+function renderDieTabs() {
+  els.dieTabs.innerHTML = '';
+  for (let i = 0; i < state.count; i++) {
+    const tab = document.createElement('button');
+    tab.className = 'die-tab' + (i === state.selectedDie ? ' active' : '');
+    const preview = previewText(state.customFacesPerDie[i]);
+    tab.innerHTML = `
+      <span class="tab-num">${i + 1}</span>
+      ${preview ? `<span class="tab-preview">${escapeHTML(preview)}</span>` : ''}
+    `;
+    tab.addEventListener('click', () => {
+      state.selectedDie = i;
+      renderDieTabs();
+      renderFaces();
+    });
+    els.dieTabs.appendChild(tab);
+  }
+}
+
 function renderFaces() {
   els.facesList.innerHTML = '';
-  state.customFaces.forEach((face, i) => {
+  els.editorCurrentLabel.textContent = `サイコロ ${state.selectedDie + 1}`;
+  const faces = getCurrentFaces();
+  faces.forEach((face, i) => {
     const item = document.createElement('div');
     item.className = 'face-item';
     item.innerHTML = `
       <span class="face-num">${i + 1}</span>
       <input class="face-input" type="text" value="" placeholder="例: 1, りんご, A など" maxlength="20">
-      <button class="face-remove" ${state.customFaces.length <= 1 ? 'disabled' : ''}>×</button>
+      <button class="face-remove" ${faces.length <= 1 ? 'disabled' : ''}>×</button>
     `;
     const input = item.querySelector('.face-input');
     input.value = face;
     input.addEventListener('input', (e) => {
-      state.customFaces[i] = e.target.value;
+      faces[i] = e.target.value;
+      // タブのプレビューも更新
+      updateTabPreview(state.selectedDie);
+      renderEmptyDice();
     });
     item.querySelector('.face-remove').addEventListener('click', () => {
-      if (state.customFaces.length > 1) {
-        state.customFaces.splice(i, 1);
+      if (faces.length > 1) {
+        faces.splice(i, 1);
         renderFaces();
+        updateTabPreview(state.selectedDie);
+        renderEmptyDice();
       }
     });
     els.facesList.appendChild(item);
   });
 }
 
+function updateTabPreview(dieIndex) {
+  const tab = els.dieTabs.children[dieIndex];
+  if (!tab) return;
+  const preview = previewText(state.customFacesPerDie[dieIndex]);
+  const previewEl = tab.querySelector('.tab-preview');
+  if (preview) {
+    if (previewEl) {
+      previewEl.textContent = preview;
+    } else {
+      const span = document.createElement('span');
+      span.className = 'tab-preview';
+      span.textContent = preview;
+      tab.appendChild(span);
+    }
+  } else if (previewEl) {
+    previewEl.remove();
+  }
+}
+
 els.addFace.addEventListener('click', () => {
-  state.customFaces.push('');
+  getCurrentFaces().push('');
   renderFaces();
-  // 追加した面の入力にフォーカス
   const inputs = els.facesList.querySelectorAll('.face-input');
   if (inputs.length) inputs[inputs.length - 1].focus();
 });
 
 els.resetFaces.addEventListener('click', () => {
-  state.customFaces = ['1', '2', '3', '4', '5', '6'];
+  state.customFacesPerDie[state.selectedDie] = DEFAULT_FACES();
   renderFaces();
+  updateTabPreview(state.selectedDie);
+  renderEmptyDice();
 });
 
-renderFaces();
+els.applyAll.addEventListener('click', () => {
+  const current = getCurrentFaces();
+  for (let i = 0; i < state.customFacesPerDie.length; i++) {
+    if (i === state.selectedDie) continue;
+    state.customFacesPerDie[i] = current.slice();
+  }
+  renderDieTabs();
+  renderEmptyDice();
+});
 
 /* ========== サイコロ描画 ========== */
 function pipsHTML(n) {
@@ -397,8 +512,9 @@ function renderEmptyDice() {
     if (state.mode === 'normal') {
       renderDieFace(die, 1);
     } else {
-      const face = state.customFaces[i % state.customFaces.length] || '?';
-      renderDieFace(die, face);
+      const faces = state.customFacesPerDie[i] || DEFAULT_FACES();
+      const first = faces.find(f => f !== '' && f != null);
+      renderDieFace(die, first != null ? first : '?');
     }
     die.style.opacity = '0.6';
     els.diceArea.appendChild(die);
@@ -406,12 +522,12 @@ function renderEmptyDice() {
 }
 
 /* ========== Roll! ========== */
-function getFaces() {
+function getFacesFor(dieIndex) {
   if (state.mode === 'normal') {
     return [1, 2, 3, 4, 5, 6];
   }
-  // 空欄を除外しない (空欄を許す/「?」表示)
-  return state.customFaces.length ? state.customFaces : [''];
+  const faces = state.customFacesPerDie[dieIndex];
+  return (faces && faces.length) ? faces : [''];
 }
 
 function rollOnce(faces) {
@@ -420,11 +536,13 @@ function rollOnce(faces) {
 
 async function roll() {
   if (state.rolling) return;
-  const faces = getFaces();
-  if (!faces.length) return;
   state.rolling = true;
   els.rollBtn.disabled = true;
   els.total.classList.add('hidden');
+
+  // サイコロごとの面リストを事前に取得
+  const facesPerDie = [];
+  for (let i = 0; i < state.count; i++) facesPerDie.push(getFacesFor(i));
 
   els.diceArea.innerHTML = '';
   const dice = [];
@@ -432,30 +550,27 @@ async function roll() {
     const die = document.createElement('div');
     die.className = 'die';
     die.style.opacity = '1';
-    // 転がってる間は中身をランダムに変える
-    renderDieFace(die, rollOnce(faces));
+    renderDieFace(die, rollOnce(facesPerDie[i]));
     die.classList.add('rolling');
     els.diceArea.appendChild(die);
     dice.push(die);
   }
 
-  // 転がってる間、面をパラパラ変える
+  // 転がってる間、面をパラパラ変える (サイコロごとに自分の面で)
   const flipInterval = setInterval(() => {
-    dice.forEach(d => renderDieFace(d, rollOnce(faces)));
+    dice.forEach((d, i) => renderDieFace(d, rollOnce(facesPerDie[i])));
   }, 90);
 
   await new Promise(r => setTimeout(r, 900));
   clearInterval(flipInterval);
 
-  // 最終結果
-  const results = dice.map(() => rollOnce(faces));
+  const results = dice.map((_, i) => rollOnce(facesPerDie[i]));
   dice.forEach((d, i) => {
     d.classList.remove('rolling');
     renderDieFace(d, results[i]);
     d.classList.add('appear');
   });
 
-  // 合計 (数値のみ)
   showTotal(results);
 
   state.rolling = false;
