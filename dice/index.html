@@ -230,6 +230,42 @@ h1 { font-size:1.8em; }
 }
 .die.appear { animation:appear 0.35s ease-out; }
 
+/* 保存セット */
+.preset-save-row { display:flex; align-items:center; gap:0.6em; margin-bottom:0.6em; flex-wrap:wrap; }
+.preset-save-btn {
+  flex:0 0 auto; padding:0.5em 1em; border:none; border-radius:10px;
+  background:linear-gradient(135deg,#fd79a8,#e84393); color:#fff;
+  font-weight:bold; font-size:0.95em; cursor:pointer;
+  box-shadow:0 2px 6px rgba(0,0,0,0.15);
+}
+.preset-save-btn:active { transform:scale(0.96); }
+.preset-list { display:flex; flex-direction:column; gap:0.4em; max-height:240px; overflow-y:auto; }
+.preset-empty { font-size:0.85em; color:#636e72; padding:0.6em; text-align:center; }
+.preset-item {
+  display:flex; align-items:center; gap:0.5em;
+  padding:0.5em 0.7em;
+  border:2px solid #dfe6e9; border-radius:10px;
+  background:#fff;
+}
+.preset-info { flex:1; min-width:0; }
+.preset-name {
+  font-weight:bold; color:#2d3436; font-size:0.95em;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.preset-meta { font-size:0.75em; color:#636e72; }
+.preset-load {
+  padding:0.4em 0.8em; border:none; border-radius:8px;
+  background:linear-gradient(135deg,#74b9ff,#0984e3); color:#fff;
+  font-weight:bold; font-size:0.85em; cursor:pointer;
+}
+.preset-load:active { transform:scale(0.94); }
+.preset-delete {
+  width:28px; height:28px; border:none; border-radius:50%;
+  background:#ff7675; color:#fff; font-weight:bold; cursor:pointer;
+  font-size:0.9em;
+}
+.preset-delete:active { transform:scale(0.9); }
+
 /* 合計表示 */
 .total {
   width:100%; max-width:480px;
@@ -299,6 +335,15 @@ h1 { font-size:1.8em; }
   </div>
 </div>
 
+<div class="panel">
+  <h2>保存したセット</h2>
+  <div class="preset-save-row">
+    <button class="preset-save-btn" id="save-preset">💾 今のを保存</button>
+    <span style="font-size:0.8em;color:#636e72;">名前を付けて保存</span>
+  </div>
+  <div class="preset-list" id="preset-list"></div>
+</div>
+
 <button class="roll-btn" id="roll-btn">🎲 ふる！</button>
 
 <div class="dice-area" id="dice-area"></div>
@@ -331,10 +376,14 @@ const els = {
   addFace: document.getElementById('add-face'),
   resetFaces: document.getElementById('reset-faces'),
   applyAll: document.getElementById('apply-all'),
+  savePreset: document.getElementById('save-preset'),
+  presetList: document.getElementById('preset-list'),
   rollBtn: document.getElementById('roll-btn'),
   diceArea: document.getElementById('dice-area'),
   total: document.getElementById('total'),
 };
+
+const STORAGE_KEY = 'dice-roller-presets-v1';
 
 /* ========== サイコロ数 ========== */
 function updateCount(delta) {
@@ -471,6 +520,109 @@ els.applyAll.addEventListener('click', () => {
   renderDieTabs();
   renderEmptyDice();
 });
+
+/* ========== 保存セット (localStorage) ========== */
+function loadPresets() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function savePresetsList(arr) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(arr));
+  } catch (e) {
+    alert('保存できませんでした (容量オーバーかも)');
+  }
+}
+
+function snapshotCurrent() {
+  // いま使っているサイコロ分だけ保存
+  return {
+    count: state.count,
+    facesPerDie: state.customFacesPerDie.slice(0, state.count).map(f => f.slice()),
+  };
+}
+
+function applyPreset(preset) {
+  const count = Math.max(MIN_COUNT, Math.min(MAX_COUNT, preset.count || 1));
+  state.count = count;
+  for (let i = 0; i < MAX_COUNT; i++) {
+    const src = preset.facesPerDie && preset.facesPerDie[i];
+    state.customFacesPerDie[i] = (src && src.length) ? src.slice() : DEFAULT_FACES();
+  }
+  state.selectedDie = 0;
+  els.countDisplay.textContent = count;
+  els.countMinus.disabled = (count === MIN_COUNT);
+  els.countPlus.disabled = (count === MAX_COUNT);
+  setMode('custom');
+}
+
+function renderPresets() {
+  const presets = loadPresets();
+  els.presetList.innerHTML = '';
+  if (!presets.length) {
+    const empty = document.createElement('div');
+    empty.className = 'preset-empty';
+    empty.textContent = 'まだ保存されていません';
+    els.presetList.appendChild(empty);
+    return;
+  }
+  presets.forEach((p, idx) => {
+    const item = document.createElement('div');
+    item.className = 'preset-item';
+    const info = document.createElement('div');
+    info.className = 'preset-info';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'preset-name';
+    nameEl.textContent = p.name;
+    const metaEl = document.createElement('div');
+    metaEl.className = 'preset-meta';
+    metaEl.textContent = `サイコロ ${p.count}個`;
+    info.appendChild(nameEl);
+    info.appendChild(metaEl);
+    const loadBtn = document.createElement('button');
+    loadBtn.className = 'preset-load';
+    loadBtn.textContent = '読込';
+    loadBtn.addEventListener('click', () => applyPreset(p));
+    const delBtn = document.createElement('button');
+    delBtn.className = 'preset-delete';
+    delBtn.textContent = '×';
+    delBtn.addEventListener('click', () => {
+      if (confirm(`「${p.name}」を削除しますか？`)) {
+        const arr = loadPresets();
+        arr.splice(idx, 1);
+        savePresetsList(arr);
+        renderPresets();
+      }
+    });
+    item.appendChild(info);
+    item.appendChild(loadBtn);
+    item.appendChild(delBtn);
+    els.presetList.appendChild(item);
+  });
+}
+
+els.savePreset.addEventListener('click', () => {
+  const input = prompt('保存する名前は？\n(例: あいうえおサイコロ)', '');
+  if (input == null) return;
+  const name = input.trim();
+  if (!name) return;
+  const arr = loadPresets();
+  const data = { name, ...snapshotCurrent() };
+  const existing = arr.findIndex(p => p.name === name);
+  if (existing >= 0) {
+    if (!confirm(`「${name}」はすでにあります。上書きしますか？`)) return;
+    arr[existing] = data;
+  } else {
+    arr.push(data);
+  }
+  savePresetsList(arr);
+  renderPresets();
+});
+
+renderPresets();
 
 /* ========== サイコロ描画 ========== */
 function pipsHTML(n) {
