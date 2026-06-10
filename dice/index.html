@@ -171,29 +171,62 @@ h1 { font-size:1.8em; }
   margin-bottom:1em;
 }
 
-/* サイコロ */
-.die {
-  width:72px; height:72px;
-  background:linear-gradient(145deg,#ffffff,#e8ecef);
-  border-radius:14px;
+/* サイコロ (3D立方体) */
+.die-slot {
+  position:relative;
+  width:var(--die-size,72px);
+  /* バウンドで飛び出す分の余白 */
+  padding-top:8px;
+}
+.die-shadow {
+  position:absolute; left:50%; bottom:-7px;
+  width:80%; height:12px;
+  transform:translateX(-50%);
+  background:radial-gradient(ellipse at center, rgba(0,0,0,0.35), rgba(0,0,0,0) 70%);
+  border-radius:50%;
+  pointer-events:none;
+}
+.die3d {
+  width:var(--die-size,72px); height:var(--die-size,72px);
+  perspective:520px;
+  perspective-origin:50% 40%;
+}
+.cube {
+  width:100%; height:100%;
+  position:relative;
+  transform-style:preserve-3d;
+  transform:rotateX(-18deg) rotateY(24deg);
+}
+.cube-face {
+  position:absolute; top:0; left:0;
+  width:100%; height:100%;
+  background:linear-gradient(145deg,#ffffff,#dfe4e8);
+  border:1px solid rgba(0,0,0,0.08);
+  border-radius:12px;
   display:flex; align-items:center; justify-content:center;
   font-size:2em; font-weight:bold; color:#2d3436;
-  box-shadow:
-    inset 0 -4px 8px rgba(0,0,0,0.1),
-    inset 0 4px 8px rgba(255,255,255,0.8),
-    0 6px 12px rgba(0,0,0,0.3);
-  position:relative;
+  text-align:center; padding:4px; line-height:1;
+  word-break:break-all; overflow:hidden;
   user-select:text; -webkit-user-select:text;
-  cursor:text;
-  text-align:center;
-  padding:4px;
-  line-height:1;
-  word-break:break-all;
-  overflow:hidden;
+  box-shadow:inset 0 0 14px rgba(0,0,0,0.06);
+  backface-visibility:hidden;
 }
-.die.text-face { font-size:1.1em; }
-.die.text-face.long { font-size:0.85em; }
-.die.text-face.xlong { font-size:0.7em; }
+/* 各面の配置: 半サイズ分押し出す */
+.cube-face.f-front  { transform:rotateY(  0deg) translateZ(calc(var(--die-size,72px)/2)); }
+.cube-face.f-back   { transform:rotateY(180deg) translateZ(calc(var(--die-size,72px)/2)); }
+.cube-face.f-right  { transform:rotateY( 90deg) translateZ(calc(var(--die-size,72px)/2)); }
+.cube-face.f-left   { transform:rotateY(-90deg) translateZ(calc(var(--die-size,72px)/2)); }
+.cube-face.f-top    { transform:rotateX( 90deg) translateZ(calc(var(--die-size,72px)/2)); }
+.cube-face.f-bottom { transform:rotateX(-90deg) translateZ(calc(var(--die-size,72px)/2)); }
+
+/* 側面・底面はすこし暗くして立体感を出す */
+.cube-face.f-right, .cube-face.f-left { background:linear-gradient(145deg,#e8ecef,#c9d1d6); }
+.cube-face.f-top { background:linear-gradient(145deg,#ffffff,#eef2f4); }
+.cube-face.f-bottom, .cube-face.f-back { background:linear-gradient(145deg,#d6dde1,#bcc6cc); }
+
+.cube-face.text-face { font-size:1.1em; }
+.cube-face.text-face.long { font-size:0.85em; }
+.cube-face.text-face.xlong { font-size:0.7em; }
 
 /* ピップ表示用 (1-6の数字をドットで) */
 .pips {
@@ -205,30 +238,35 @@ h1 { font-size:1.8em; }
   width:12px; height:12px; border-radius:50%;
   background:radial-gradient(circle at 30% 30%, #636e72, #2d3436);
   align-self:center; justify-self:center;
+  box-shadow:inset 0 2px 3px rgba(0,0,0,0.5), inset 0 -1px 2px rgba(255,255,255,0.25);
 }
+.pip.red { background:radial-gradient(circle at 30% 30%, #e55039, #b71c1c); }
 .pip.hidden { visibility:hidden; }
 
-/* 転がるアニメーション */
-@keyframes roll {
-  0%   { transform:translateY(0) rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
-  20%  { transform:translateY(-30px) rotateX(180deg) rotateY(90deg) rotateZ(45deg); }
-  40%  { transform:translateY(-10px) rotateX(360deg) rotateY(180deg) rotateZ(180deg); }
-  60%  { transform:translateY(-40px) rotateX(540deg) rotateY(270deg) rotateZ(270deg); }
-  80%  { transform:translateY(-15px) rotateX(720deg) rotateY(360deg) rotateZ(360deg); }
-  100% { transform:translateY(0) rotateX(900deg) rotateY(450deg) rotateZ(405deg); }
+/* 転がるアニメーション: 上から落ちてバウンドしながら回転が減衰 */
+@keyframes dice-drop {
+  0%   { transform:translateY(-90px); animation-timing-function:cubic-bezier(0.55,0,1,0.45); }
+  32%  { transform:translateY(0);     animation-timing-function:cubic-bezier(0,0.55,0.45,1); }
+  52%  { transform:translateY(-32px); animation-timing-function:cubic-bezier(0.55,0,1,0.45); }
+  70%  { transform:translateY(0);     animation-timing-function:cubic-bezier(0,0.55,0.45,1); }
+  82%  { transform:translateY(-12px); animation-timing-function:cubic-bezier(0.55,0,1,0.45); }
+  91%  { transform:translateY(0);     animation-timing-function:cubic-bezier(0,0.55,0.45,1); }
+  96%  { transform:translateY(-4px);  animation-timing-function:cubic-bezier(0.55,0,1,0.45); }
+  100% { transform:translateY(0); }
 }
-.die.rolling {
-  animation:roll 0.9s cubic-bezier(0.4, 0.05, 0.3, 1);
-  background:linear-gradient(145deg,#ffeaa7,#fdcb6e);
-}
-.die.rolling .pip { background:radial-gradient(circle at 30% 30%, #d63031, #b71c1c); }
+.die3d.dropping { animation:dice-drop var(--roll-dur,1.25s) both; }
 
-@keyframes appear {
-  0%   { transform:scale(0.3) rotate(-180deg); opacity:0; }
-  60%  { transform:scale(1.15) rotate(10deg); opacity:1; }
-  100% { transform:scale(1) rotate(0); opacity:1; }
+/* 影もバウンドに合わせて伸縮 */
+@keyframes shadow-drop {
+  0%   { transform:translateX(-50%) scale(0.45); opacity:0.25; }
+  32%  { transform:translateX(-50%) scale(1.1);  opacity:1; }
+  52%  { transform:translateX(-50%) scale(0.75); opacity:0.55; }
+  70%  { transform:translateX(-50%) scale(1.05); opacity:1; }
+  82%  { transform:translateX(-50%) scale(0.88); opacity:0.75; }
+  91%  { transform:translateX(-50%) scale(1.02); opacity:1; }
+  100% { transform:translateX(-50%) scale(1); opacity:1; }
 }
-.die.appear { animation:appear 0.35s ease-out; }
+.die-slot.dropping .die-shadow { animation:shadow-drop var(--roll-dur,1.25s) both; }
 
 /* 保存セット */
 .preset-save-row { display:flex; align-items:center; gap:0.6em; margin-bottom:0.6em; flex-wrap:wrap; }
@@ -285,8 +323,10 @@ h1 { font-size:1.8em; }
   user-select:text; -webkit-user-select:text;
 }
 
+:root { --die-size:72px; }
 @media (max-width:380px) {
-  .die { width:60px; height:60px; font-size:1.7em; }
+  :root { --die-size:60px; }
+  .cube-face { font-size:1.7em; }
   .pip { width:10px; height:10px; }
   h1 { font-size:1.5em; }
 }
@@ -642,16 +682,63 @@ function pipsHTML(n) {
     '</div>';
 }
 
-function renderDieFace(die, value) {
-  die.classList.remove('text-face', 'long', 'xlong');
-  if (state.mode === 'normal') {
-    die.innerHTML = pipsHTML(value);
+/* 3D立方体の構築 */
+const FACE_NAMES = ['front', 'back', 'right', 'left', 'top', 'bottom'];
+// その面を正面に向けるための [rotateX, rotateY]
+const FACE_TO_ROT = {
+  front:  [0, 0],
+  back:   [0, 180],
+  right:  [0, -90],
+  left:   [0, 90],
+  top:    [-90, 0],
+  bottom: [90, 0],
+};
+// 本物のサイコロ配置 (向かい合う面の和が7)
+const NORMAL_LAYOUT = { front: 1, back: 6, top: 2, bottom: 5, right: 3, left: 4 };
+
+function createDieSlot() {
+  const slot = document.createElement('div');
+  slot.className = 'die-slot';
+  const shadow = document.createElement('div');
+  shadow.className = 'die-shadow';
+  const die3d = document.createElement('div');
+  die3d.className = 'die3d';
+  const cube = document.createElement('div');
+  cube.className = 'cube';
+  const faceEls = {};
+  FACE_NAMES.forEach(n => {
+    const f = document.createElement('div');
+    f.className = 'cube-face f-' + n;
+    faceEls[n] = f;
+    cube.appendChild(f);
+  });
+  die3d.appendChild(cube);
+  slot.appendChild(shadow);
+  slot.appendChild(die3d);
+  return { slot, shadow, die3d, cube, faceEls };
+}
+
+function setFaceContent(el, value, pipMode) {
+  el.classList.remove('text-face', 'long', 'xlong');
+  if (pipMode) {
+    el.innerHTML = pipsHTML(value);
   } else {
     const text = (value === '' || value == null) ? '?' : String(value);
-    die.classList.add('text-face');
-    if (text.length >= 6) die.classList.add('xlong');
-    else if (text.length >= 3) die.classList.add('long');
-    die.textContent = text;
+    el.classList.add('text-face');
+    if (text.length >= 6) el.classList.add('xlong');
+    else if (text.length >= 3) el.classList.add('long');
+    el.textContent = text;
+  }
+}
+
+function fillCubeIdle(faceEls, dieIndex) {
+  if (state.mode === 'normal') {
+    FACE_NAMES.forEach(n => setFaceContent(faceEls[n], NORMAL_LAYOUT[n], true));
+  } else {
+    const faces = state.customFacesPerDie[dieIndex] || DEFAULT_FACES();
+    FACE_NAMES.forEach((n, j) => {
+      setFaceContent(faceEls[n], faces[j % faces.length], false);
+    });
   }
 }
 
@@ -659,17 +746,10 @@ function renderEmptyDice() {
   els.diceArea.innerHTML = '';
   els.total.classList.add('hidden');
   for (let i = 0; i < state.count; i++) {
-    const die = document.createElement('div');
-    die.className = 'die';
-    if (state.mode === 'normal') {
-      renderDieFace(die, 1);
-    } else {
-      const faces = state.customFacesPerDie[i] || DEFAULT_FACES();
-      const first = faces.find(f => f !== '' && f != null);
-      renderDieFace(die, first != null ? first : '?');
-    }
-    die.style.opacity = '0.6';
-    els.diceArea.appendChild(die);
+    const d = createDieSlot();
+    fillCubeIdle(d.faceEls, i);
+    d.slot.style.opacity = '0.6';
+    els.diceArea.appendChild(d.slot);
   }
 }
 
@@ -692,36 +772,64 @@ async function roll() {
   els.rollBtn.disabled = true;
   els.total.classList.add('hidden');
 
-  // サイコロごとの面リストを事前に取得
-  const facesPerDie = [];
-  for (let i = 0; i < state.count; i++) facesPerDie.push(getFacesFor(i));
-
+  const DUR = 1300;          // 回転・バウンドの長さ (ms)
   els.diceArea.innerHTML = '';
-  const dice = [];
+  const results = [];
+  let maxDelay = 0;
+
   for (let i = 0; i < state.count; i++) {
-    const die = document.createElement('div');
-    die.className = 'die';
-    die.style.opacity = '1';
-    renderDieFace(die, rollOnce(facesPerDie[i]));
-    die.classList.add('rolling');
-    els.diceArea.appendChild(die);
-    dice.push(die);
+    const faces = getFacesFor(i);
+    const result = rollOnce(faces);
+    results.push(result);
+
+    const d = createDieSlot();
+    const pipMode = (state.mode === 'normal');
+
+    // 立方体の6面を埋めて、結果が出る面 (landing) を決める
+    let landing;
+    if (pipMode) {
+      landing = FACE_NAMES.find(n => NORMAL_LAYOUT[n] === result);
+      FACE_NAMES.forEach(n => setFaceContent(d.faceEls[n], NORMAL_LAYOUT[n], true));
+    } else {
+      landing = FACE_NAMES[Math.floor(Math.random() * FACE_NAMES.length)];
+      FACE_NAMES.forEach(n => setFaceContent(d.faceEls[n], rollOnce(faces), false));
+      setFaceContent(d.faceEls[landing], result, false);
+    }
+
+    // 最終姿勢 = landing面が正面 + わずかな傾き (転がり終わった感じ)
+    const [rx, ry] = FACE_TO_ROT[landing];
+    const jx = Math.random() * 8 - 4;
+    const jy = Math.random() * 8 - 4;
+    const jz = Math.random() * 14 - 7;
+    // 開始姿勢 = そこから数回転戻した位置 → transitionで減衰しながら回る
+    const spinsX = 360 * (2 + Math.floor(Math.random() * 2));
+    const spinsY = 360 * (1 + Math.floor(Math.random() * 2)) * (Math.random() < 0.5 ? -1 : 1);
+    const spinsZ = 360 * (Math.random() < 0.5 ? -1 : 1);
+    const delay = Math.floor(Math.random() * 180);
+    maxDelay = Math.max(maxDelay, delay);
+
+    d.cube.style.transform =
+      `rotateX(${rx + jx - spinsX}deg) rotateY(${ry + jy - spinsY}deg) rotateZ(${jz - spinsZ}deg)`;
+
+    // 落下バウンドと影 (回転と同じタイミング)
+    d.slot.style.setProperty('--roll-dur', DUR + 'ms');
+    d.die3d.style.animationDelay = delay + 'ms';
+    d.shadow.style.animationDelay = delay + 'ms';
+    d.slot.classList.add('dropping');
+    d.die3d.classList.add('dropping');
+
+    els.diceArea.appendChild(d.slot);
+
+    // 初期姿勢を描画してからtransitionで最終姿勢へ
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      d.cube.style.transition =
+        `transform ${DUR}ms cubic-bezier(0.16, 0.7, 0.2, 1) ${delay}ms`;
+      d.cube.style.transform =
+        `rotateX(${rx + jx}deg) rotateY(${ry + jy}deg) rotateZ(${jz}deg)`;
+    }));
   }
 
-  // 転がってる間、面をパラパラ変える (サイコロごとに自分の面で)
-  const flipInterval = setInterval(() => {
-    dice.forEach((d, i) => renderDieFace(d, rollOnce(facesPerDie[i])));
-  }, 90);
-
-  await new Promise(r => setTimeout(r, 900));
-  clearInterval(flipInterval);
-
-  const results = dice.map((_, i) => rollOnce(facesPerDie[i]));
-  dice.forEach((d, i) => {
-    d.classList.remove('rolling');
-    renderDieFace(d, results[i]);
-    d.classList.add('appear');
-  });
+  await new Promise(r => setTimeout(r, DUR + maxDelay + 100));
 
   showTotal(results);
 
