@@ -414,7 +414,18 @@ function sfxPop() {
   src.start();
   playTone(450 + Math.random() * 350, 0.08, 'triangle', 0.15);
 }
-function sfxKira()  { [1047, 1319, 1568, 2093].forEach((f, i) => playTone(f, 0.35, 'triangle', 0.2, i * 0.07)); }
+// ほし: キラリン！（鈴のような高い2音＋きらめきの余韻）
+function sfxKirarin() {
+  playTone(2093, 0.12, 'sine', 0.25);        // C7
+  playTone(3136, 0.5,  'sine', 0.22, 0.09);  // G7（余韻長め）
+  playTone(4186, 0.4,  'sine', 0.08, 0.09);  // 高い倍音のきらめき
+}
+// にじ: シャラララ〜ン（7色にちなんだ7音のかけあがり）
+function sfxRainbow() {
+  [523, 587, 659, 698, 784, 880, 988].forEach((f, i) =>
+    playTone(f, 0.25, 'triangle', 0.16, i * 0.055));
+  playTone(1047, 0.55, 'triangle', 0.2, 0.385);
+}
 function sfxWrong() { playTone(300, 0.18, 'sine', 0.18); playTone(245, 0.28, 'sine', 0.18, 0.15); }
 function sfxTouch() { playTone(650 + Math.random() * 450, 0.06, 'sine', 0.07); }
 function sfxStart() { playTone(523, 0.12, 'triangle', 0.2); playTone(784, 0.2, 'triangle', 0.2, 0.1); }
@@ -525,10 +536,10 @@ function popBalloon(b, idx) {
   particles.push({ shape: 'ring', x: b.x, y: b.y, vx: 0, vy: 0, g: 0, rot: 0, vr: 0,
                    maxR: b.r * 1.7, life: 0.3, maxLife: 0.3, size: 0, color: '#ffffff' });
   if (b.type === 'star') {
-    sfxKira();
+    sfxKirarin();
     spawnStars(b.x, b.y, b.r);
   } else if (b.type === 'rainbow') {
-    sfxKira();
+    sfxRainbow();
     spawnConfetti(b.x, b.y);
   } else {
     sfxPop();
