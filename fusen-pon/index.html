@@ -160,6 +160,56 @@
   #timer-box.warn { color: #e53935; animation: pulse 0.5s infinite alternate; }
   @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.12); } }
 
+  /* はやさスライダー（右側・🐢ゆっくり〜🚀はやい） */
+  #speed-ctrl {
+    position: fixed;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255,255,255,0.75);
+    border-radius: 24px;
+    padding: 10px 5px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.12);
+    z-index: 5;
+  }
+  .speed-icon { font-size: 20px; }
+  #speed-slider-wrap { width: 36px; height: 140px; position: relative; }
+  #speed-slider {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 140px;
+    transform: translate(-50%, -50%) rotate(-90deg);
+    -webkit-appearance: none;
+    appearance: none;
+    height: 10px;
+    border-radius: 5px;
+    background: linear-gradient(90deg, #9be7a2, #ffd54f, #ff8a9b);
+    outline: none;
+    touch-action: none;
+  }
+  #speed-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #fff;
+    border: 4px solid #ff5e78;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+  }
+  #speed-slider::-moz-range-thumb {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #fff;
+    border: 4px solid #ff5e78;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.25);
+  }
+
   /* おだい発表（中央の大きな文字） */
   #announce {
     position: fixed;
@@ -251,6 +301,13 @@
       <div id="timer-box"><span id="timer">60</span><span class="unit">びょう</span></div>
     </div>
     <div id="announce"></div>
+    <div id="speed-ctrl">
+      <span class="speed-icon">🚀</span>
+      <div id="speed-slider-wrap">
+        <input type="range" id="speed-slider" min="0.4" max="2" step="0.05" value="1" aria-label="ふうせんのはやさ">
+      </div>
+      <span class="speed-icon">🐢</span>
+    </div>
   </div>
 
   <!-- けっか画面 -->
@@ -307,6 +364,15 @@ let spawnTimer = 0;
 let popCount = 0;         // ぽんぽんモード: われたかず
 let score = 0, combo = 0, timeLeft = 60;
 let targetIdx = 0, targetTimer = 0;
+
+// ふうせんのはやさ（スライダーで変更・保存して次回も引き継ぐ）
+let speedFactor = parseFloat(localStorage.getItem('fusen-speed')) || 1;
+const speedSlider = document.getElementById('speed-slider');
+speedSlider.value = speedFactor;
+speedSlider.addEventListener('input', () => {
+  speedFactor = parseFloat(speedSlider.value);
+  localStorage.setItem('fusen-speed', speedSlider.value);
+});
 
 // ===== 効果音（Web Audio API・全部シンセ生成） =====
 let audioCtx = null;
@@ -598,7 +664,7 @@ function update(dt) {
   // 風船
   for (let i = balloons.length - 1; i >= 0; i--) {
     const b = balloons[i];
-    b.y -= b.vy * dt;
+    b.y -= b.vy * speedFactor * dt;
     b.phase += dt;
     b.x = b.baseX + Math.sin(b.phase * 1.6) * b.swayAmp;
     if (b.wobble > 0) b.wobble = Math.max(0, b.wobble - dt * 2.5);
