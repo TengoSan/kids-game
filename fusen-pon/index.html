@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>ふうせんぽんぽん</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#5ec8f8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { color-scheme: light; }
+  html, body {
+    background: #aee4ff;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    font-family: "Hiragino Maru Gothic ProN", "BIZ UDGothic", "Yu Gothic", sans-serif;
+  }
+
+  .screen { position: fixed; inset: 0; }
+  .hidden { display: none !important; }
+
+  /* ===== スタート画面 ===== */
+  #start-screen {
+    background: linear-gradient(#aee4ff, #eafaff);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 26px;
+    overflow: hidden;
+  }
+  .title {
+    font-size: min(13vw, 64px);
+    font-weight: 900;
+    color: #ff5e78;
+    text-align: center;
+    line-height: 1.2;
+    text-shadow: 0 4px 0 rgba(255,255,255,0.9), 0 8px 16px rgba(0,0,0,0.12);
+    margin-bottom: 8px;
+  }
+  .mode-btn {
+    width: min(80vw, 340px);
+    padding: 20px 10px;
+    font-size: min(7.5vw, 32px);
+    font-weight: 900;
+    font-family: inherit;
+    color: #fff;
+    border: none;
+    border-radius: 32px;
+    cursor: pointer;
+    box-shadow: 0 6px 0 rgba(0,0,0,0.18);
+    transition: transform 0.1s;
+  }
+  .mode-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(0,0,0,0.18); }
+  #btn-pon { background: linear-gradient(#ff8a9b, #ff5e78); }
+  #btn-challenge { background: linear-gradient(#66c7ff, #2e9fe6); }
+  .btn-sub { display: block; font-size: 0.45em; font-weight: 700; opacity: 0.95; margin-top: 6px; }
+
+  /* スタート画面のふわふわ風船 */
+  .float-balloon {
+    position: absolute;
+    bottom: -80px;
+    font-size: 56px;
+    opacity: 0.55;
+    animation: floatUp linear infinite;
+    pointer-events: none;
+  }
+  .float-balloon.b1 { left: 12%; animation-duration: 7s; }
+  .float-balloon.b2 { left: 50%; animation-duration: 9s; animation-delay: 2.5s; font-size: 44px; }
+  .float-balloon.b3 { left: 80%; animation-duration: 8s; animation-delay: 1s; font-size: 64px; }
+  @keyframes floatUp {
+    from { transform: translateY(0) rotate(-4deg); }
+    to   { transform: translateY(-115vh) rotate(4deg); }
+  }
+
+  /* ===== ゲーム画面 ===== */
+  #game-canvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    display: block;
+  }
+  #home-btn {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 10px);
+    left: 12px;
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.9);
+    box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+    cursor: pointer;
+  }
+  .hud {
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 10px);
+    pointer-events: none;
+  }
+  /* ぽんぽんモード: われたかず */
+  #hud-pon {
+    right: 14px;
+    background: rgba(255,255,255,0.9);
+    border-radius: 28px;
+    padding: 10px 20px;
+    font-size: 26px;
+    font-weight: 900;
+    color: #ff5e78;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.12);
+  }
+  /* ちょうせんモード: てんすう・おだい・のこりじかん */
+  #hud-challenge {
+    left: 70px;
+    right: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  #hud-challenge > div {
+    background: rgba(255,255,255,0.92);
+    border-radius: 24px;
+    padding: 8px 14px;
+    font-weight: 900;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.12);
+    white-space: nowrap;
+  }
+  #score-box { font-size: 20px; color: #2e9fe6; }
+  #score-box .unit, #timer-box .unit { font-size: 0.6em; margin-left: 2px; }
+  #quest {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 20px;
+    color: #444;
+  }
+  #quest-swatch {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.15);
+    flex-shrink: 0;
+  }
+  #timer-box { font-size: 22px; color: #444; }
+  #timer-box.warn { color: #e53935; animation: pulse 0.5s infinite alternate; }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.12); } }
+
+  /* おだい発表（中央の大きな文字） */
+  #announce {
+    position: fixed;
+    top: 36%;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: min(10vw, 48px);
+    font-weight: 900;
+    color: #fff;
+    text-shadow: 0 3px 0 rgba(0,0,0,0.18), 0 6px 14px rgba(0,0,0,0.25);
+    opacity: 0;
+    pointer-events: none;
+  }
+  #announce .swatch {
+    display: inline-block;
+    width: 0.9em;
+    height: 0.9em;
+    border-radius: 50%;
+    border: 4px solid #fff;
+    vertical-align: -0.12em;
+    margin-right: 0.2em;
+  }
+  #announce.show { animation: announce 1.5s ease forwards; }
+  @keyframes announce {
+    0%   { opacity: 0; transform: scale(0.4); }
+    15%  { opacity: 1; transform: scale(1.15); }
+    30%  { transform: scale(1); }
+    75%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ===== けっか画面 ===== */
+  #result-screen {
+    background: linear-gradient(#aee4ff, #eafaff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .result-card {
+    background: #fff;
+    border-radius: 36px;
+    padding: 36px 30px;
+    width: min(84vw, 360px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+  }
+  #result-msg { font-size: min(9vw, 40px); font-weight: 900; color: #ff5e78; }
+  #result-stars { display: flex; gap: 8px; }
+  .star { font-size: min(15vw, 64px); color: #e0e0e0; }
+  .star.on { color: #ffc107; animation: starpop 0.5s backwards; }
+  .star.on:nth-child(2) { animation-delay: 0.25s; }
+  .star.on:nth-child(3) { animation-delay: 0.5s; }
+  @keyframes starpop {
+    0%   { transform: scale(0); }
+    60%  { transform: scale(1.4) rotate(12deg); }
+    100% { transform: scale(1); }
+  }
+  #result-score-row { font-size: 28px; font-weight: 900; color: #2e9fe6; }
+  #result-score { font-size: 1.6em; }
+  #btn-retry { background: linear-gradient(#ff8a9b, #ff5e78); }
+  .mode-btn.secondary { background: linear-gradient(#cfd8dc, #90a4ae); }
+  .result-card .mode-btn { width: 100%; padding: 14px; font-size: 24px; }
+</style>
+</head>
+<body>
+
+  <!-- スタート画面 -->
+  <div id="start-screen" class="screen">
+    <div class="float-balloon b1">🎈</div>
+    <div class="float-balloon b2">🎈</div>
+    <div class="float-balloon b3">🎈</div>
+    <h1 class="title">ふうせん<br>ぽんぽん</h1>
+    <button id="btn-pon" class="mode-btn">🎈 ぽんぽん<span class="btn-sub">ちいさいこも あそべるよ</span></button>
+    <button id="btn-challenge" class="mode-btn">⭐ ちょうせん<span class="btn-sub">60びょうで なんてん とれるかな？</span></button>
+  </div>
+
+  <!-- ゲーム画面 -->
+  <div id="game-screen" class="screen hidden">
+    <canvas id="game-canvas"></canvas>
+    <button id="home-btn" aria-label="おうちへ">🏠</button>
+    <div id="hud-pon" class="hud hidden">🎈 <span id="pop-count">0</span></div>
+    <div id="hud-challenge" class="hud hidden">
+      <div id="score-box"><span id="score-disp">0</span><span class="unit">てん</span></div>
+      <div id="quest"><span id="quest-swatch"></span><span id="quest-text"></span></div>
+      <div id="timer-box"><span id="timer">60</span><span class="unit">びょう</span></div>
+    </div>
+    <div id="announce"></div>
+  </div>
+
+  <!-- けっか画面 -->
+  <div id="result-screen" class="screen hidden">
+    <div class="result-card">
+      <div id="result-msg"></div>
+      <div id="result-stars">
+        <span class="star">★</span><span class="star">★</span><span class="star">★</span>
+      </div>
+      <div id="result-score-row"><span id="result-score">0</span> てん</div>
+      <button id="btn-retry" class="mode-btn">もういちど</button>
+      <button id="btn-home2" class="mode-btn secondary">おうちへ</button>
+    </div>
+  </div>
+
+<script>
+'use strict';
+
+// ===== 色の定義（ちょうせんモードのお題にも使う） =====
+const COLORS = [
+  { name: 'あか',     hex: '#ff5252', dark: '#c62828' },
+  { name: 'あお',     hex: '#42a5f5', dark: '#1565c0' },
+  { name: 'きいろ',   hex: '#ffd740', dark: '#f9a825' },
+  { name: 'みどり',   hex: '#66bb6a', dark: '#2e7d32' },
+  { name: 'むらさき', hex: '#ab47bc', dark: '#6a1b9a' },
+];
+const CONFETTI_COLORS = ['#ff5252', '#ffd740', '#66bb6a', '#42a5f5', '#ab47bc', '#ff8a65'];
+
+// ===== キャンバス =====
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0;
+
+function resizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  W = canvas.clientWidth;
+  H = canvas.clientHeight;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (clouds.length === 0) initClouds();
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ===== ゲーム状態 =====
+let mode = null;          // 'pon' | 'challenge'
+let running = false;
+let balloons = [];
+let particles = [];
+let floatTexts = [];
+let clouds = [];
+let lastTime = 0;
+let spawnTimer = 0;
+let popCount = 0;         // ぽんぽんモード: われたかず
+let score = 0, combo = 0, timeLeft = 60;
+let targetIdx = 0, targetTimer = 0;
+
+// ===== 効果音（Web Audio API・全部シンセ生成） =====
+let audioCtx = null;
+function initAudio() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  if (!audioCtx) audioCtx = new AC();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playTone(freq, dur, type, vol, delay) {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime + (delay || 0);
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.type = type || 'sine';
+  o.frequency.setValueAtTime(freq, t);
+  g.gain.setValueAtTime(vol || 0.25, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(audioCtx.destination);
+  o.start(t);
+  o.stop(t + dur);
+}
+// 「パンッ」: ノイズバースト + 短いトーン
+function sfxPop() {
+  if (!audioCtx) return;
+  const dur = 0.12;
+  const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * dur, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+  const src = audioCtx.createBufferSource();
+  src.buffer = buf;
+  const f = audioCtx.createBiquadFilter();
+  f.type = 'bandpass';
+  f.frequency.value = 900 + Math.random() * 900;
+  f.Q.value = 0.7;
+  const g = audioCtx.createGain();
+  g.gain.value = 0.55;
+  src.connect(f).connect(g).connect(audioCtx.destination);
+  src.start();
+  playTone(450 + Math.random() * 350, 0.08, 'triangle', 0.15);
+}
+function sfxKira()  { [1047, 1319, 1568, 2093].forEach((f, i) => playTone(f, 0.35, 'triangle', 0.2, i * 0.07)); }
+function sfxWrong() { playTone(300, 0.18, 'sine', 0.18); playTone(245, 0.28, 'sine', 0.18, 0.15); }
+function sfxTouch() { playTone(650 + Math.random() * 450, 0.06, 'sine', 0.07); }
+function sfxStart() { playTone(523, 0.12, 'triangle', 0.2); playTone(784, 0.2, 'triangle', 0.2, 0.1); }
+function sfxQuest() { playTone(660, 0.1, 'square', 0.12); playTone(880, 0.15, 'square', 0.12, 0.1); }
+function sfxFanfare() {
+  [[523, 0], [659, 0.13], [784, 0.26], [1047, 0.42], [784, 0.62], [1047, 0.75]]
+    .forEach(([f, d]) => playTone(f, 0.32, 'triangle', 0.25, d));
+}
+
+// ===== 画面遷移 =====
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.toggle('hidden', s.id !== id));
+}
+
+function startGame(m) {
+  mode = m;
+  balloons = []; particles = []; floatTexts = [];
+  popCount = 0; score = 0; combo = 0; timeLeft = 60;
+  spawnTimer = 0;
+  showScreen('game-screen');
+  document.getElementById('hud-pon').classList.toggle('hidden', m !== 'pon');
+  document.getElementById('hud-challenge').classList.toggle('hidden', m !== 'challenge');
+  resizeCanvas();
+  if (m === 'pon') {
+    document.getElementById('pop-count').textContent = '0';
+  } else {
+    targetIdx = Math.floor(Math.random() * COLORS.length);
+    targetTimer = 15;
+    announceTarget();
+    updateHud();
+  }
+  sfxStart();
+  running = true;
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
+}
+
+function goHome() {
+  running = false;
+  showScreen('start-screen');
+}
+
+// ===== ちょうせんモードのお題 =====
+function changeTarget() {
+  let next;
+  do { next = Math.floor(Math.random() * COLORS.length); } while (next === targetIdx);
+  targetIdx = next;
+  targetTimer = 15;
+  announceTarget();
+}
+function announceTarget() {
+  const c = COLORS[targetIdx];
+  const el = document.getElementById('announce');
+  el.innerHTML = '<span class="swatch" style="background:' + c.hex + '"></span>' + c.name + ' を ぽんぽん！';
+  el.classList.remove('show');
+  void el.offsetWidth;  // アニメーション再起動
+  el.classList.add('show');
+  sfxQuest();
+  updateHud();
+}
+function updateHud() {
+  document.getElementById('score-disp').textContent = score;
+  const t = Math.max(0, Math.ceil(timeLeft));
+  document.getElementById('timer').textContent = t;
+  document.getElementById('timer-box').classList.toggle('warn', t <= 10);
+  const c = COLORS[targetIdx];
+  document.getElementById('quest-swatch').style.background = c.hex;
+  document.getElementById('quest-text').textContent = c.name;
+}
+
+// ===== 風船 =====
+function spawnBalloon() {
+  const base = Math.min(W, H);
+  let r, vy;
+  if (mode === 'pon') {
+    r = base * (0.10 + Math.random() * 0.03);   // ２歳向けに大きめ
+    vy = H * (0.07 + Math.random() * 0.05);     // ゆっくり
+  } else {
+    r = base * (0.08 + Math.random() * 0.02);
+    vy = H * (0.10 + Math.random() * 0.06);
+  }
+  r = Math.min(r, 80);
+
+  let type = 'normal';
+  let colorIdx = Math.floor(Math.random() * COLORS.length);
+  const roll = Math.random();
+  if (mode === 'pon') {
+    if (roll < 0.06) type = 'star';
+    else if (roll < 0.12) type = 'rainbow';
+  } else {
+    if (roll < 0.07) type = 'star';
+    else if (Math.random() < 0.4) colorIdx = targetIdx;  // お題の色を出やすく
+  }
+
+  const margin = r + 10;
+  balloons.push({
+    baseX: margin + Math.random() * Math.max(W - margin * 2, 1),
+    x: 0, y: H + r * 2, r, vy, type, colorIdx,
+    phase: Math.random() * Math.PI * 2,
+    swayAmp: 10 + Math.random() * 20,
+    wobble: 0,
+  });
+}
+
+function popBalloon(b, idx) {
+  balloons.splice(idx, 1);
+  // 破裂リング
+  particles.push({ shape: 'ring', x: b.x, y: b.y, vx: 0, vy: 0, g: 0, rot: 0, vr: 0,
+                   maxR: b.r * 1.7, life: 0.3, maxLife: 0.3, size: 0, color: '#ffffff' });
+  if (b.type === 'star') {
+    sfxKira();
+    spawnStars(b.x, b.y, b.r);
+  } else if (b.type === 'rainbow') {
+    sfxKira();
+    spawnConfetti(b.x, b.y);
+  } else {
+    sfxPop();
+    spawnFragments(b.x, b.y, b.r, COLORS[b.colorIdx].hex);
+  }
+}
+
+// ===== パーティクル =====
+function spawnFragments(x, y, r, color) {
+  for (let i = 0; i < 10; i++) {
+    const ang = (i / 10) * Math.PI * 2 + Math.random() * 0.5;
+    const sp = 160 + Math.random() * 200;
+    particles.push({ shape: 'frag', x, y,
+                     vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 60,
+                     g: 600, rot: 0, vr: 0,
+                     size: r * (0.1 + Math.random() * 0.08),
+                     life: 0.5 + Math.random() * 0.25, maxLife: 0.7, color });
+  }
+}
+function spawnConfetti(x, y) {
+  for (let i = 0; i < 24; i++) {
+    particles.push({ shape: 'confetti', x, y,
+                     vx: (Math.random() - 0.5) * 420, vy: -250 + Math.random() * 180,
+                     g: 380, rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 12,
+                     size: 6 + Math.random() * 6,
+                     life: 1.3 + Math.random() * 0.6, maxLife: 1.9,
+                     color: CONFETTI_COLORS[i % CONFETTI_COLORS.length] });
+  }
+}
+function spawnStars(x, y, r) {
+  for (let i = 0; i < 8; i++) {
+    const ang = (i / 8) * Math.PI * 2;
+    const sp = 140 + Math.random() * 160;
+    particles.push({ shape: 'star', x, y,
+                     vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp - 80,
+                     g: 420, rot: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 10,
+                     size: r * (0.16 + Math.random() * 0.1),
+                     life: 0.8 + Math.random() * 0.3, maxLife: 1.1, color: '#ffc107' });
+  }
+}
+function spawnRipple(x, y) {
+  particles.push({ shape: 'ring', x, y, vx: 0, vy: 0, g: 0, rot: 0, vr: 0,
+                   maxR: 36, life: 0.3, maxLife: 0.3, size: 0, color: '#ffffff' });
+}
+function showFloatText(x, y, text, color, size) {
+  floatTexts.push({ x, y, text, color, size, life: 0.9 });
+}
+
+// ===== タップ処理 =====
+const activePointers = new Set();
+
+function getPos(e) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+function findBalloon(x, y) {
+  for (let i = balloons.length - 1; i >= 0; i--) {
+    const b = balloons[i];
+    const dx = x - b.x, dy = y - b.y;
+    const hit = b.r * 1.35;  // 当たり判定は甘めに
+    if (dx * dx + dy * dy <= hit * hit) return i;
+  }
+  return -1;
+}
+
+function handleTap(x, y) {
+  if (!running) return;
+  const idx = findBalloon(x, y);
+  if (idx >= 0) {
+    onBalloonTap(balloons[idx], idx);
+  } else {
+    spawnRipple(x, y);          // 何もない所でも反応がある
+    if (mode === 'pon') sfxTouch();
+  }
+}
+
+// ぽんぽんモードはなぞるだけでも割れる（２歳向け）
+function handleSwipe(x, y) {
+  if (!running || mode !== 'pon') return;
+  const idx = findBalloon(x, y);
+  if (idx >= 0) onBalloonTap(balloons[idx], idx);
+}
+
+function onBalloonTap(b, idx) {
+  if (mode === 'pon') {
+    popBalloon(b, idx);
+    popCount++;
+    document.getElementById('pop-count').textContent = popCount;
+    if (popCount % 10 === 0) {
+      spawnConfetti(b.x, b.y);
+      showFloatText(b.x, b.y - b.r, 'すごい！', '#ff4081', 30);
+    }
+  } else {
+    if (b.type === 'star') {
+      score += 30;
+      popBalloon(b, idx);
+      showFloatText(b.x, b.y, '+30', '#f9a825', 28);
+    } else if (b.colorIdx === targetIdx) {
+      combo++;
+      const pts = 10 + Math.min((combo - 1) * 2, 10);
+      score += pts;
+      popBalloon(b, idx);
+      showFloatText(b.x, b.y, '+' + pts, COLORS[b.colorIdx].dark, 26);
+      if (combo >= 3) showFloatText(b.x, b.y - 34, combo + 'れんぞく！', '#ff4081', 20);
+    } else {
+      b.wobble = 1;   // ちがう色はプルプルするだけ（減点なし）
+      combo = 0;
+      sfxWrong();
+    }
+    updateHud();
+  }
+}
+
+canvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  initAudio();
+  activePointers.add(e.pointerId);
+  const p = getPos(e);
+  handleTap(p.x, p.y);
+});
+canvas.addEventListener('pointermove', e => {
+  if (!activePointers.has(e.pointerId)) return;
+  const p = getPos(e);
+  handleSwipe(p.x, p.y);
+});
+['pointerup', 'pointercancel', 'pointerleave'].forEach(ev =>
+  canvas.addEventListener(ev, e => activePointers.delete(e.pointerId))
+);
+
+// ===== 更新 =====
+function update(dt) {
+  // 風船
+  for (let i = balloons.length - 1; i >= 0; i--) {
+    const b = balloons[i];
+    b.y -= b.vy * dt;
+    b.phase += dt;
+    b.x = b.baseX + Math.sin(b.phase * 1.6) * b.swayAmp;
+    if (b.wobble > 0) b.wobble = Math.max(0, b.wobble - dt * 2.5);
+    if (b.y < -b.r * 2.2) balloons.splice(i, 1);  // 上に抜けたら消えるだけ（失敗なし）
+  }
+  // スポーン
+  spawnTimer -= dt;
+  const maxB = mode === 'pon' ? 8 : 10;
+  if (spawnTimer <= 0 && balloons.length < maxB) {
+    spawnBalloon();
+    spawnTimer = mode === 'pon' ? 0.6 : 0.5;
+  }
+  // パーティクル
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.life -= dt;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += p.g * dt;
+    p.rot += p.vr * dt;
+    if (p.shape === 'confetti') p.x += Math.sin(p.life * 6) * 30 * dt;
+  }
+  // うきもじ
+  for (let i = floatTexts.length - 1; i >= 0; i--) {
+    const t = floatTexts[i];
+    t.life -= dt;
+    t.y -= 55 * dt;
+    if (t.life <= 0) floatTexts.splice(i, 1);
+  }
+  // くも
+  for (const c of clouds) {
+    c.x += c.v * dt;
+    if (c.x > W + 120) c.x = -120;
+  }
+  // ちょうせんモードのタイマー
+  if (mode === 'challenge') {
+    timeLeft -= dt;
+    targetTimer -= dt;
+    if (targetTimer <= 0 && timeLeft > 5) changeTarget();
+    updateHud();
+    if (timeLeft <= 0) endChallenge();
+  }
+}
+
+function endChallenge() {
+  running = false;
+  const stars = score >= 350 ? 3 : score >= 200 ? 2 : 1;
+  document.getElementById('result-score').textContent = score;
+  document.getElementById('result-msg').textContent =
+    stars === 3 ? 'てんさい！！' : stars === 2 ? 'すごい！' : 'がんばったね！';
+  document.querySelectorAll('#result-stars .star').forEach((el, i) => {
+    el.classList.remove('on');
+    void el.offsetWidth;
+    if (i < stars) el.classList.add('on');
+  });
+  showScreen('result-screen');
+  sfxFanfare();
+}
+
+// ===== 描画 =====
+function initClouds() {
+  clouds = [];
+  for (let i = 0; i < 4; i++) {
+    clouds.push({
+      x: Math.random() * W,
+      y: H * (0.06 + Math.random() * 0.28),
+      s: 0.6 + Math.random() * 0.9,
+      v: 5 + Math.random() * 9,
+    });
+  }
+}
+
+function pathStar(x, y, r, rot) {
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const ang = (rot || 0) + i * Math.PI / 5 - Math.PI / 2;
+    const rr = i % 2 === 0 ? r : r * 0.45;
+    const px = x + Math.cos(ang) * rr;
+    const py = y + Math.sin(ang) * rr;
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+}
+
+function lighten(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const mix = c => Math.round(c + (255 - c) * 0.55);
+  return 'rgb(' + mix(n >> 16) + ',' + mix((n >> 8) & 255) + ',' + mix(n & 255) + ')';
+}
+
+function drawBalloon(b) {
+  const x = b.x + (b.wobble > 0 ? Math.sin(b.phase * 40) * b.wobble * 8 : 0);
+  const y = b.y, r = b.r;
+
+  // いと
+  ctx.strokeStyle = 'rgba(110,110,110,0.5)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x, y + r * 1.05);
+  ctx.quadraticCurveTo(x + Math.sin(b.phase * 2) * 8, y + r * 1.6, x, y + r * 2.05);
+  ctx.stroke();
+
+  // 本体
+  let fill;
+  if (b.type === 'rainbow') {
+    fill = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
+    ['#ff5252', '#ffd740', '#66bb6a', '#42a5f5', '#ab47bc'].forEach((c, i, a) =>
+      fill.addColorStop(i / (a.length - 1), c));
+  } else {
+    const col = b.type === 'star' ? '#ffd740' : COLORS[b.colorIdx].hex;
+    fill = ctx.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.1, x, y, r);
+    fill.addColorStop(0, lighten(col));
+    fill.addColorStop(1, col);
+  }
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.ellipse(x, y, r * 0.92, r, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // むすびめ
+  ctx.fillStyle = b.type === 'star' ? '#f9a825' :
+                  b.type === 'rainbow' ? '#ab47bc' : COLORS[b.colorIdx].dark;
+  ctx.beginPath();
+  ctx.moveTo(x - r * 0.13, y + r * 1.13);
+  ctx.lineTo(x + r * 0.13, y + r * 1.13);
+  ctx.lineTo(x, y + r * 0.95);
+  ctx.closePath();
+  ctx.fill();
+
+  // ハイライト
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.beginPath();
+  ctx.ellipse(x - r * 0.32, y - r * 0.38, r * 0.2, r * 0.28, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // かお／ほし
+  if (b.type === 'star') {
+    ctx.fillStyle = '#fff';
+    pathStar(x, y, r * 0.42, 0);
+    ctx.fill();
+  } else {
+    // にこにこ顔
+    ctx.fillStyle = 'rgba(40,40,40,0.85)';
+    ctx.beginPath();
+    ctx.arc(x - r * 0.24, y - r * 0.02, r * 0.07, 0, Math.PI * 2);
+    ctx.arc(x + r * 0.24, y - r * 0.02, r * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(40,40,40,0.85)';
+    ctx.lineWidth = Math.max(r * 0.05, 2);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.arc(x, y + r * 0.1, r * 0.24, Math.PI * 0.2, Math.PI * 0.8);
+    ctx.stroke();
+  }
+}
+
+function drawParticle(p) {
+  const a = Math.max(p.life / p.maxLife, 0);
+  ctx.globalAlpha = a;
+  if (p.shape === 'ring') {
+    const rr = p.maxR * (1 - p.life / p.maxLife) + 4;
+    ctx.strokeStyle = p.color;
+    ctx.lineWidth = 4 * a;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, rr, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (p.shape === 'confetti') {
+    ctx.save();
+    ctx.translate(p.x, p.y);
+    ctx.rotate(p.rot);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(-p.size / 2, -p.size / 3, p.size, p.size * 0.66);
+    ctx.restore();
+  } else if (p.shape === 'star') {
+    ctx.fillStyle = p.color;
+    pathStar(p.x, p.y, p.size, p.rot);
+    ctx.fill();
+  } else {  // frag
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * a, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function draw() {
+  // そら
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#aee4ff');
+  g.addColorStop(1, '#eafaff');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // たいよう
+  ctx.fillStyle = 'rgba(255,245,157,0.9)';
+  ctx.beginPath();
+  ctx.arc(W - 56, 150, 34, 0, Math.PI * 2);
+  ctx.fill();
+
+  // くも
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  for (const c of clouds) {
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 26 * c.s, 0, Math.PI * 2);
+    ctx.arc(c.x - 22 * c.s, c.y + 7 * c.s, 19 * c.s, 0, Math.PI * 2);
+    ctx.arc(c.x + 24 * c.s, c.y + 6 * c.s, 20 * c.s, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  for (const b of balloons) drawBalloon(b);
+  for (const p of particles) drawParticle(p);
+
+  for (const t of floatTexts) {
+    ctx.globalAlpha = Math.min(t.life / 0.3, 1);
+    ctx.font = '900 ' + t.size + 'px "Hiragino Maru Gothic ProN", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.strokeText(t.text, t.x, t.y);
+    ctx.fillStyle = t.color;
+    ctx.fillText(t.text, t.x, t.y);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ===== ゲームループ（requestAnimationFrame） =====
+function loop(ts) {
+  if (!running) return;
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ===== ボタン =====
+document.getElementById('btn-pon').addEventListener('click', () => { initAudio(); startGame('pon'); });
+document.getElementById('btn-challenge').addEventListener('click', () => { initAudio(); startGame('challenge'); });
+document.getElementById('home-btn').addEventListener('click', goHome);
+document.getElementById('btn-retry').addEventListener('click', () => { initAudio(); startGame('challenge'); });
+document.getElementById('btn-home2').addEventListener('click', goHome);
+
+// ズーム・長押しメニューの防止
+document.addEventListener('contextmenu', e => e.preventDefault());
+document.addEventListener('gesturestart', e => e.preventDefault());
+
+// ServiceWorker 登録（PWA・オフライン対応）
+if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
