@@ -377,12 +377,12 @@ body {
 <script>
 // === 定数 ===
 const MONEY_TYPES = [
-  { value: 1,     label: '1',    color: '#C0C0C0', border: '#A0A0A0', textColor: '#555', radius: 16, mergeCount: 5, type: 'coin', holeSize: 0 },
-  { value: 5,     label: '五',   color: '#DAA520', border: '#B8860B', textColor: '#6B4400', radius: 18, mergeCount: 2, type: 'coin', holeSize: 4 },
-  { value: 10,    label: '10',   color: '#B87333', border: '#8B5A2B', textColor: '#4A2800', radius: 21, mergeCount: 5, type: 'coin', holeSize: 0 },
-  { value: 50,    label: '50',   color: '#C0C0C0', border: '#909090', textColor: '#444', radius: 24, mergeCount: 2, type: 'coin', holeSize: 5 },
-  { value: 100,   label: '100',  color: '#D4D4D4', border: '#A8A8A8', textColor: '#333', radius: 27, mergeCount: 5, type: 'coin', holeSize: 0 },
-  { value: 500,   label: '500',  color: '#E8D878', border: '#C8B840', textColor: '#5A4800', radius: 31, mergeCount: 2, type: 'coin', holeSize: 0, bicolor: true },
+  { value: 1,     label: '1',    color: '#C0C0C0', border: '#A0A0A0', textColor: '#555', radius: 16, mergeCount: 5, type: 'coin', holeSize: 0, motif: 'wakagi' },
+  { value: 5,     label: '五',   color: '#DAA520', border: '#B8860B', textColor: '#6B4400', radius: 18, mergeCount: 2, type: 'coin', holeSize: 4, motif: 'inaho' },
+  { value: 10,    label: '10',   color: '#B87333', border: '#8B5A2B', textColor: '#4A2800', radius: 21, mergeCount: 5, type: 'coin', holeSize: 0, motif: 'laurel' },
+  { value: 50,    label: '50',   color: '#C0C0C0', border: '#909090', textColor: '#444', radius: 24, mergeCount: 2, type: 'coin', holeSize: 5, motif: 'kiku', milled: true },
+  { value: 100,   label: '100',  color: '#D4D4D4', border: '#A8A8A8', textColor: '#333', radius: 27, mergeCount: 5, type: 'coin', holeSize: 0, motif: 'sakura', milled: true },
+  { value: 500,   label: '500',  color: '#E8D878', border: '#C8B840', textColor: '#5A4800', radius: 31, mergeCount: 2, type: 'coin', holeSize: 0, bicolor: true, motif: 'kiri', milled: true },
   { value: 1000,  label: '千円',  color: '#4A90D9', border: '#2E6EB0', textColor: '#fff', radius: 36, mergeCount: 5, type: 'bill' },
   { value: 5000,  label: '五千円', color: '#8B5EA8', border: '#6B3E88', textColor: '#fff', radius: 42, mergeCount: 2, type: 'bill' },
   { value: 10000, label: '壱万円', color: '#8B6914', border: '#6B4A0A', textColor: '#fff', radius: 48, mergeCount: 0, type: 'bill' },
@@ -505,16 +505,24 @@ function stopBgm() {
   if (bgmTimer) { clearInterval(bgmTimer); bgmTimer = null; }
 }
 
-// コイン落下音「チャリン」
-function playDropSound() {
+// コイン落下音「チャリン」（大きい硬貨ほど低く重い音、紙幣は紙の音）
+function playDropSound(moneyIdx) {
   if (!audioCtx || !soundEnabled) return;
+  const money = MONEY_TYPES[moneyIdx] || MONEY_TYPES[0];
+  if (money.type === 'bill') { playPaperSound(); return; }
+
   const t = audioCtx.currentTime;
+  // 半径16(1円)=1.0 〜 半径31(500円)≒0.52 の比率で音程を下げる
+  const pitch = Math.pow(16 / money.radius, 0.6);
+  const baseFreq = 1800 * pitch;
+  const volume = 0.15 + (1 - pitch) * 0.08; // 大きい硬貨ほど少し大きい音
+
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(1800, t);
-  osc.frequency.exponentialRampToValueAtTime(1200, t + 0.08);
-  gain.gain.setValueAtTime(0.15, t);
+  osc.frequency.setValueAtTime(baseFreq, t);
+  osc.frequency.exponentialRampToValueAtTime(baseFreq * 0.67, t + 0.08);
+  gain.gain.setValueAtTime(volume, t);
   gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
   osc.connect(gain).connect(audioCtx.destination);
   osc.start(t);
@@ -523,13 +531,37 @@ function playDropSound() {
   const osc2 = audioCtx.createOscillator();
   const gain2 = audioCtx.createGain();
   osc2.type = 'sine';
-  osc2.frequency.setValueAtTime(3600, t);
-  osc2.frequency.exponentialRampToValueAtTime(2400, t + 0.06);
-  gain2.gain.setValueAtTime(0.06, t);
+  osc2.frequency.setValueAtTime(baseFreq * 2, t);
+  osc2.frequency.exponentialRampToValueAtTime(baseFreq * 1.33, t + 0.06);
+  gain2.gain.setValueAtTime(volume * 0.4, t);
   gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
   osc2.connect(gain2).connect(audioCtx.destination);
   osc2.start(t);
   osc2.stop(t + 0.1);
+}
+
+// 紙幣落下音「サッ」（フィルタをかけたノイズ）
+function playPaperSound() {
+  if (!audioCtx || !soundEnabled) return;
+  const t = audioCtx.currentTime;
+  const dur = 0.13;
+  const bufferSize = Math.floor(audioCtx.sampleRate * dur);
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+  }
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = 1000;
+  filter.Q.value = 0.8;
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.12, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  src.connect(filter).connect(gain).connect(audioCtx.destination);
+  src.start(t);
 }
 
 // コイン衝突音「カチッ」
@@ -628,6 +660,53 @@ function getMoneyIndex(value) {
   return MONEY_TYPES.findIndex(m => m.value === value);
 }
 
+// === 物理ボディ生成（素材でふるまいを変える） ===
+function moneyBodyOptions(money) {
+  if (money.type === 'coin') {
+    // 金属: 少し跳ねて、重くて、よく滑り込む
+    return {
+      restitution: 0.18,
+      friction: 0.7,
+      density: 0.004,
+      frictionAir: 0.015,
+      frictionStatic: 0.6,
+      sleepThreshold: 30,
+    };
+  }
+  // 紙: ほぼ跳ねず、軽くて、空気抵抗でゆっくり落ちる
+  return {
+    restitution: 0.02,
+    friction: 0.9,
+    density: 0.0015,
+    frictionAir: 0.045,
+    frictionStatic: 0.9,
+    sleepThreshold: 25,
+    chamfer: { radius: 3 },
+  };
+}
+
+function createMoneyBody(idx, x, y) {
+  const money = MONEY_TYPES[idx];
+  let body;
+  if (money.type === 'bill') {
+    // 紙幣は見た目どおりの長方形ボディ（平たく積み重なる）
+    const w = money.radius * 1.7;
+    const h = money.radius * 0.95;
+    body = Matter.Bodies.rectangle(x, y, w, h, moneyBodyOptions(money));
+    // 各種距離計算・当たり判定用の名目半径（長方形には circleRadius がないため）
+    body.circleRadius = money.radius * 0.85;
+    Matter.Body.setAngle(body, (Math.random() - 0.5) * 0.25);
+  } else {
+    body = Matter.Bodies.circle(x, y, money.radius, moneyBodyOptions(money));
+    // 落とした硬貨がわずかに回転しながら落ちる
+    Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.15);
+  }
+  body.moneyValue = money.value;
+  body.moneyIndex = idx;
+  body.createdAt = Date.now();
+  return body;
+}
+
 // === 硬貨・紙幣描画 ===
 function drawMoney(ctx, money, x, y, radius, angle) {
   ctx.save();
@@ -665,6 +744,20 @@ function drawMoney(ctx, money, x, y, radius, angle) {
     ctx.lineWidth = 0.5;
     ctx.stroke();
 
+    // ギザ縁（50円・100円・500円）
+    if (money.milled) {
+      ctx.strokeStyle = darkenColor(money.color, 45);
+      ctx.lineWidth = 0.7;
+      const ticks = Math.round(radius * 2.4);
+      for (let i = 0; i < ticks; i++) {
+        const a = (i / ticks) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * (radius - 0.6), Math.sin(a) * (radius - 0.6));
+        ctx.lineTo(Math.cos(a) * (radius - 2.2), Math.sin(a) * (radius - 2.2));
+        ctx.stroke();
+      }
+    }
+
     // 500円バイカラー
     if (money.bicolor) {
       const innerGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, radius * 0.65);
@@ -690,18 +783,30 @@ function drawMoney(ctx, money, x, y, radius, angle) {
       ctx.stroke();
     }
 
-    // 文字
-    ctx.fillStyle = money.textColor;
+    // 実物風のモチーフ（文字の下に薄く描く）
+    drawCoinMotif(ctx, money, radius);
+
+    // 光沢ハイライト（左上の反射）
+    ctx.beginPath();
+    ctx.arc(0, 0, radius - 4.5, Math.PI * 1.05, Math.PI * 1.5);
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+    ctx.lineWidth = 1.6;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+
+    // 文字（浮き彫り＝エンボス風に3層で描く）
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const fontSize = money.holeSize > 0 ? radius * 0.5 : radius * 0.6;
     ctx.font = `bold ${fontSize}px sans-serif`;
-    if (money.holeSize > 0) {
-      // 穴あきは文字を上にずらす
-      ctx.fillText(money.label, 0, -money.holeSize - fontSize * 0.5);
-    } else {
-      ctx.fillText(money.label, 0, 0);
-    }
+    const textY = money.holeSize > 0 ? -money.holeSize - fontSize * 0.5 : 0;
+    ctx.fillStyle = lightenColor(money.color, 75);
+    ctx.fillText(money.label, -0.7, textY - 0.7);
+    ctx.fillStyle = darkenColor(money.color, 55);
+    ctx.fillText(money.label, 0.7, textY + 0.7);
+    ctx.fillStyle = money.textColor;
+    ctx.fillText(money.label, 0, textY);
   } else {
     // 紙幣（日本の新紙幣風リアルデザイン）
     const w = radius * 1.7;
@@ -860,6 +965,15 @@ function drawMoney(ctx, money, x, y, radius, angle) {
     ctx.fill();
     ctx.globalAlpha = 1;
 
+    // すかし（右寄りの明るい楕円。光にかざした風合い）
+    ctx.beginPath();
+    ctx.ellipse(w * 0.25, 0, w * 0.11, h * 0.3, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+
     // 右側に大きな数字
     ctx.fillStyle = design.accentColor;
     ctx.globalAlpha = 0.12;
@@ -868,6 +982,20 @@ function drawMoney(ctx, money, x, y, radius, angle) {
     ctx.font = `bold ${h * 0.55}px serif`;
     ctx.fillText(design.kanjiLabel, w * 0.25, 0);
     ctx.globalAlpha = 1;
+
+    // 中央の折り目（お財布に入っていた雰囲気）
+    ctx.beginPath();
+    ctx.moveTo(0, -h / 2 + 1);
+    ctx.lineTo(0, h / 2 - 1);
+    ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(0.8, -h / 2 + 1);
+    ctx.lineTo(0.8, h / 2 - 1);
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
 
     ctx.restore(); // clip解除
 
@@ -982,6 +1110,93 @@ function darkenColor(hex, amount) {
   const g = Math.max(0, ((num >> 8) & 0xff) - amount);
   const b = Math.max(0, (num & 0xff) - amount);
   return `rgb(${r},${g},${b})`;
+}
+
+// === 硬貨のモチーフ描画（実物のデザインを簡略化） ===
+function drawCoinMotif(ctx, money, radius) {
+  if (!money.motif) return;
+  const c = darkenColor(money.color, 50);
+  ctx.save();
+  ctx.strokeStyle = c;
+  ctx.fillStyle = c;
+  ctx.lineWidth = Math.max(0.6, radius * 0.045);
+  ctx.globalAlpha = 0.45;
+
+  if (money.motif === 'wakagi') {
+    // 若木（1円）: 茎と若葉
+    const t = radius * 0.5, y0 = -radius * 0.3;
+    ctx.beginPath();
+    ctx.moveTo(0, y0 + t * 0.55);
+    ctx.lineTo(0, y0 - t * 0.4);
+    ctx.moveTo(0, y0 - t * 0.05);
+    ctx.quadraticCurveTo(-t * 0.35, y0 - t * 0.2, -t * 0.45, y0 - t * 0.5);
+    ctx.moveTo(0, y0 + t * 0.15);
+    ctx.quadraticCurveTo(t * 0.35, y0, t * 0.45, y0 - t * 0.3);
+    ctx.stroke();
+  } else if (money.motif === 'inaho') {
+    // 稲穂（5円）: 穴の両脇に稲の穂
+    for (const dir of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(dir * money.holeSize * 1.6, radius * 0.6);
+      ctx.quadraticCurveTo(dir * radius * 0.6, radius * 0.2, dir * radius * 0.42, -radius * 0.2);
+      ctx.stroke();
+      for (let i = 0; i < 3; i++) {
+        const tt = 0.45 + i * 0.25;
+        const px = dir * (money.holeSize * 1.6 + (radius * 0.45 - money.holeSize * 1.6) * tt);
+        const py = radius * 0.6 - radius * 0.8 * tt;
+        ctx.beginPath();
+        ctx.arc(px, py, radius * 0.06, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  } else if (money.motif === 'laurel') {
+    // 月桂樹（10円の裏面風）: 下側の弧と葉
+    ctx.beginPath();
+    ctx.arc(0, radius * 0.05, radius * 0.58, Math.PI * 0.2, Math.PI * 0.8);
+    ctx.stroke();
+    for (const dir of [-1, 1]) {
+      for (let i = 0; i < 3; i++) {
+        const a = Math.PI / 2 + dir * (0.35 + i * 0.3);
+        const x = Math.cos(a) * radius * 0.58;
+        const y = radius * 0.05 + Math.sin(a) * radius * 0.58;
+        ctx.beginPath();
+        ctx.ellipse(x, y - radius * 0.07, radius * 0.055, radius * 0.11, dir * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  } else if (money.motif === 'kiku') {
+    // 菊（50円）: 穴のまわりに花びら
+    const rr = money.holeSize + radius * 0.18;
+    for (let i = 0; i < 8; i++) {
+      if (i === 6) continue; // 上は文字と重なるので空ける
+      const a = (i / 8) * Math.PI * 2;
+      ctx.beginPath();
+      ctx.ellipse(Math.cos(a) * rr, Math.sin(a) * rr, radius * 0.08, radius * 0.15, a + Math.PI / 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else if (money.motif === 'sakura') {
+    // 桜（100円）: 下側に3つの花
+    for (const [fx, fy, fr] of [[-radius * 0.42, radius * 0.36, radius * 0.13], [0, radius * 0.52, radius * 0.15], [radius * 0.42, radius * 0.36, radius * 0.13]]) {
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2 - Math.PI / 2;
+        ctx.beginPath();
+        ctx.ellipse(fx + Math.cos(a) * fr * 0.6, fy + Math.sin(a) * fr * 0.6, fr * 0.35, fr * 0.5, a + Math.PI / 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  } else if (money.motif === 'kiri') {
+    // 桐（500円）: 上側に3枚の葉
+    const y0 = -radius * 0.48;
+    for (const [dx, sc] of [[-radius * 0.26, 0.75], [0, 1], [radius * 0.26, 0.75]]) {
+      ctx.beginPath();
+      ctx.moveTo(dx, y0 + radius * 0.16 * sc);
+      ctx.quadraticCurveTo(dx - radius * 0.16 * sc, y0, dx, y0 - radius * 0.18 * sc);
+      ctx.quadraticCurveTo(dx + radius * 0.16 * sc, y0, dx, y0 + radius * 0.16 * sc);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
 }
 
 // === お金スプライトのプリレンダーキャッシュ ===
@@ -1219,22 +1434,12 @@ function dropMoney() {
   const x = mousePos.x;
   const y = DROP_AREA_Y;
 
-  const body = Matter.Bodies.circle(x, y, money.radius, {
-    restitution: 0.1,
-    friction: 0.8,
-    density: 0.003,
-    frictionAir: 0.02,
-    frictionStatic: 0.5,
-    sleepThreshold: 30,
-  });
-  body.moneyValue = money.value;
-  body.moneyIndex = nextMoneyIndex;
-  body.createdAt = Date.now();
+  const body = createMoneyBody(nextMoneyIndex, x, y);
 
   Matter.Composite.add(world, body);
   allBodies.push(body);
   lastDroppedBody = body;
-  playDropSound();
+  playDropSound(nextMoneyIndex);
 
   // クールダウン（最低限の連打防止）
   dropCooldown = true;
@@ -1270,13 +1475,16 @@ function onCollisionStick(event) {
     const moneyIdx = getMoneyIndex(a.moneyValue);
     if (moneyIdx < 0 || MONEY_TYPES[moneyIdx].mergeCount === 0) continue;
 
-    // constraint で接着（自然接触距離で接着、高ダンピング）
+    // constraint で接着（実際の接触距離で固定。紙幣の重なりにも対応）
+    const ddx = a.position.x - b.position.x;
+    const ddy = a.position.y - b.position.y;
+    const contactDist = Math.sqrt(ddx * ddx + ddy * ddy);
     const constraint = Matter.Constraint.create({
       bodyA: a,
       bodyB: b,
       stiffness: 0.2,
       damping: 0.3,
-      length: MONEY_TYPES[moneyIdx].radius * 2,
+      length: Math.max(8, Math.min(contactDist, MONEY_TYPES[moneyIdx].radius * 2)),
     });
     Matter.Composite.add(world, constraint);
     stickyConstraints.push({ constraint, bodyA: a, bodyB: b, pairKey });
@@ -1398,17 +1606,7 @@ function performMerge(group, moneyIdx, mergeCount) {
   const newMoneyIdx = moneyIdx + 1;
   const newMoney = MONEY_TYPES[newMoneyIdx];
 
-  const newBody = Matter.Bodies.circle(cx, cy, newMoney.radius, {
-    restitution: 0.1,
-    friction: 0.8,
-    density: 0.003,
-    frictionAir: 0.02,
-    frictionStatic: 0.5,
-    sleepThreshold: 30,
-  });
-  newBody.moneyValue = newMoney.value;
-  newBody.moneyIndex = newMoneyIdx;
-  newBody.createdAt = Date.now();
+  const newBody = createMoneyBody(newMoneyIdx, cx, cy);
 
   Matter.Composite.add(world, newBody);
   allBodies.push(newBody);
