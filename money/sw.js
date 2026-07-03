@@ -1,7 +1,8 @@
-const CACHE_NAME = 'money-game-v4';
+const CACHE_NAME = 'money-game-v5';
 const ASSETS = [
   './',
   './index.html',
+  './matter.min.js',
   './manifest.json',
   './icon-180x180.png',
   './icon-192x192.png',
