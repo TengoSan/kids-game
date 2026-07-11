@@ -30,6 +30,15 @@ button { font-family:inherit; }
   cursor:pointer; transition:transform .05s; }
 .seg:active{ transform:scale(.95); }
 .seg.on{ background:linear-gradient(180deg,#ffd76a,#d9a441); color:#4a2c00; border-color:#8f6a1d; }
+
+/* スピードのスライダー */
+input[type=range].speed{ -webkit-appearance:none; appearance:none; flex:1; height:14px;
+  border-radius:8px; background:#08240f; border:2px solid #d9a441; outline:none; margin:0; }
+input[type=range].speed::-webkit-slider-thumb{ -webkit-appearance:none; appearance:none;
+  width:34px; height:34px; border-radius:50%; background:linear-gradient(180deg,#ffd76a,#d9a441);
+  border:3px solid #8f6a1d; cursor:pointer; box-shadow:0 2px 5px rgba(0,0,0,.3); }
+input[type=range].speed::-moz-range-thumb{ width:34px; height:34px; border-radius:50%;
+  background:linear-gradient(180deg,#ffd76a,#d9a441); border:3px solid #8f6a1d; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -113,11 +122,9 @@ button { font-family:inherit; }
       </div>
       <div style="display:flex;align-items:center;gap:10px">
         <span style="flex:0 0 84px;font-size:14px;font-weight:700;color:#b8e6c4">スピード</span>
-        <div style="flex:1;display:flex;gap:8px">
-          <button type="button" class="seg" data-speed="900">おそい</button>
-          <button type="button" class="seg on" data-speed="1500">ふつう</button>
-          <button type="button" class="seg" data-speed="2400">はやい</button>
-        </div>
+        <span style="font-size:13px;font-weight:700;color:#b8e6c4">🐢</span>
+        <input type="range" class="speed" id="speed-slider" min="150" max="2600" step="50" value="1500">
+        <span style="font-size:13px;font-weight:700;color:#b8e6c4">🐇</span>
       </div>
     </div>
 
@@ -370,20 +377,20 @@ button { font-family:inherit; }
   el.stops.forEach(function(btn, i){ btn.addEventListener('click', function(){ stop(i); }); });
   el.sound.addEventListener('click', function(){ state.sound = !state.sound; render(); });
 
-  // 設定: とめかた / スピード のセグメント切替
+  // 設定: とめかた のセグメント切替
   var segStop = Array.prototype.slice.call(document.querySelectorAll('[data-stop]'));
-  var segSpeed = Array.prototype.slice.call(document.querySelectorAll('[data-speed]'));
   function syncSeg(){
     segStop.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-stop') === stopMode); });
-    segSpeed.forEach(function(b){ b.classList.toggle('on', Number(b.getAttribute('data-speed')) === speed); });
   }
   segStop.forEach(function(b){
     b.addEventListener('click', function(){ stopMode = b.getAttribute('data-stop'); syncSeg(); });
   });
-  segSpeed.forEach(function(b){
-    b.addEventListener('click', function(){ speed = Number(b.getAttribute('data-speed')); syncSeg(); });
-  });
   syncSeg();
+
+  // 設定: スピードのスライダー（回転中に動かしても即反映される）
+  var speedSlider = document.getElementById('speed-slider');
+  speed = Number(speedSlider.value);
+  speedSlider.addEventListener('input', function(){ speed = Number(speedSlider.value); });
 
   // ===== モバイル用スケーリング =====
   var scaler = document.getElementById('scaler');
