@@ -1,0 +1,9 @@
+{
+  "name": "GOLDEN SLOT",
+  "short_name": "スロット",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7efdc",
+  "theme_color": "#0e3d21"
+}
