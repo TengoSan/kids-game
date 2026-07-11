@@ -303,13 +303,26 @@ input[type=range].speed::-moz-range-thumb{ width:34px; height:34px; border-radiu
     }
   }
 
-  // ===== リール停止（抽選ロジック）=====
+  // ===== リール停止 =====
   function stop(i){
     var r = state.reels[i];
     if(r.mode !== 'spin') return;
+
+    // パッと即止め: 抽選せず、いま中央に見えているシンボルでそのまま止める（目押し）
+    // 中央行のシンボル index = (round(y/CELL)+1) % 6。y を最寄りセルにスナップ（移動最大45px）。
+    if(stopMode === 'snap'){
+      r.y = Math.round(r.y / CELL) * CELL;                 // 最寄りセルへ整列（ガクつき防止）
+      r.pos = ((Math.round(r.y / CELL) + 1) % 6 + 6) % 6;  // 中央に見えているシンボル
+      r.mode = 'done';
+      render();
+      beep(500 + i*120, 0.07);
+      landed(i);
+      return;
+    }
+
+    // ゆっくり減速: luck で当たりやすくバイアスした抽選
     var luck = CONFIG.luck / 100;
     var done = state.reels.filter(function(x){ return x.mode==='done'; });
-
     var pos = Math.floor(Math.random()*6);
     if(done.length === 1){
       // 2番目: luck の確率で1番目と揃える（リーチ発生）
@@ -319,16 +332,7 @@ input[type=range].speed::-moz-range-thumb{ width:34px; height:34px; border-radiu
       pos = Math.random() < luck ? done[0].pos : (done[0].pos + 1) % 6;
     }
 
-    // パッと即止め: 減速せず即座に着地シンボルへスナップ
-    if(stopMode === 'snap'){
-      r.mode = 'done'; r.pos = pos; r.y = yFor(pos);
-      render();
-      beep(500 + i*120, 0.07);
-      landed(i);
-      return;
-    }
-
-    // ゆっくり減速: 現在位置から3セル以上先に着地
+    // 現在位置から3セル以上先に着地
     var to = yFor(pos);
     while(to < r.y + CELL*3) to += CYCLE;
     r.mode = 'stop'; r.pos = pos; r.from = r.y; r.to = to; r.t0 = performance.now();
