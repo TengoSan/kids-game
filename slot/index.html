@@ -23,6 +23,13 @@ body { background:#f7efdc; font-family:'M PLUS Rounded 1c',sans-serif; -webkit-f
 @keyframes pop{0%{transform:scale(.4) rotate(-8deg)}60%{transform:scale(1.15) rotate(2deg)}100%{transform:scale(1)}}
 
 button { font-family:inherit; }
+
+/* 設定のセグメント切替ボタン */
+.seg{ flex:1; height:44px; border-radius:10px; border:2px solid #d9a441; background:#08240f;
+  color:#b8e6c4; font-family:'M PLUS Rounded 1c',sans-serif; font-size:16px; font-weight:700;
+  cursor:pointer; transition:transform .05s; }
+.seg:active{ transform:scale(.95); }
+.seg.on{ background:linear-gradient(180deg,#ffd76a,#d9a441); color:#4a2c00; border-color:#8f6a1d; }
 </style>
 </head>
 <body>
@@ -94,6 +101,25 @@ button { font-family:inherit; }
       <button type="button" id="btn-sound" style="flex:0 0 76px;height:64px;border-radius:12px;background:#08240f;border:2px solid #d9a441;color:#fff;font-size:14px;font-weight:700;cursor:pointer">🔊 ON</button>
     </div>
 
+    <!-- 設定（とめかた・スピード） -->
+    <div style="display:flex;flex-direction:column;gap:10px;background:#0b2e18;border:2px solid #d9a441;border-radius:12px;padding:10px 12px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="flex:0 0 84px;font-size:14px;font-weight:700;color:#b8e6c4">とめかた</span>
+        <div style="flex:1;display:flex;gap:8px">
+          <button type="button" class="seg" data-stop="snap">パッと</button>
+          <button type="button" class="seg on" data-stop="slow">ゆっくり</button>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="flex:0 0 84px;font-size:14px;font-weight:700;color:#b8e6c4">スピード</span>
+        <div style="flex:1;display:flex;gap:8px">
+          <button type="button" class="seg" data-speed="900">おそい</button>
+          <button type="button" class="seg on" data-speed="1500">ふつう</button>
+          <button type="button" class="seg" data-speed="2400">はやい</button>
+        </div>
+      </div>
+    </div>
+
     <!-- WIN オーバーレイ -->
     <div id="win-overlay" style="position:absolute;inset:0;z-index:5;display:none;align-items:center;justify-content:center;background:rgba(15,50,25,.55);border-radius:22px;pointer-events:none">
       <div id="win-card" style="animation:pop .5s;background:#ffd54f;border:4px solid #7a4a00;border-radius:20px;padding:22px 46px;text-align:center;box-shadow:0 0 40px rgba(255,213,79,.9)">
@@ -118,7 +144,9 @@ button { font-family:inherit; }
 
   // ===== リール幾何 =====
   var SYMS = ['🍒','🍋','🍇','🔔','⭐','7'];
-  var CELL = 90, CYCLE = 540, SPEED = 1500, STOP_MS = 650;
+  var CELL = 90, CYCLE = 540, STOP_MS = 650;
+  var speed = 1500;       // ドラムの回転速度 px/s（スピード設定で変更）
+  var stopMode = 'slow';  // 'snap'=パッと即止め / 'slow'=ゆっくり減速停止
 
   // pos を中央行に出すためのスクロールオフセット
   function yFor(p){ return CYCLE + CELL * ((p + 5) % 6); }
@@ -222,7 +250,7 @@ button { font-family:inherit; }
     state.reels.forEach(function(r, i){
       if(r.mode === 'spin'){
         any = true;
-        r.y += SPEED * dt;
+        r.y += speed * dt;
         if(r.y >= CYCLE*2) r.y -= CYCLE;   // ラップ
       } else if(r.mode === 'stop'){
         var t = Math.min(1, (ts - r.t0)/STOP_MS);
@@ -283,7 +311,16 @@ button { font-family:inherit; }
       pos = Math.random() < luck ? done[0].pos : (done[0].pos + 1) % 6;
     }
 
-    // 現在位置から3セル以上先に着地
+    // パッと即止め: 減速せず即座に着地シンボルへスナップ
+    if(stopMode === 'snap'){
+      r.mode = 'done'; r.pos = pos; r.y = yFor(pos);
+      render();
+      beep(500 + i*120, 0.07);
+      landed(i);
+      return;
+    }
+
+    // ゆっくり減速: 現在位置から3セル以上先に着地
     var to = yFor(pos);
     while(to < r.y + CELL*3) to += CYCLE;
     r.mode = 'stop'; r.pos = pos; r.from = r.y; r.to = to; r.t0 = performance.now();
@@ -332,10 +369,27 @@ button { font-family:inherit; }
   el.stops.forEach(function(btn, i){ btn.addEventListener('click', function(){ stop(i); }); });
   el.sound.addEventListener('click', function(){ state.sound = !state.sound; render(); });
 
+  // 設定: とめかた / スピード のセグメント切替
+  var segStop = Array.prototype.slice.call(document.querySelectorAll('[data-stop]'));
+  var segSpeed = Array.prototype.slice.call(document.querySelectorAll('[data-speed]'));
+  function syncSeg(){
+    segStop.forEach(function(b){ b.classList.toggle('on', b.getAttribute('data-stop') === stopMode); });
+    segSpeed.forEach(function(b){ b.classList.toggle('on', Number(b.getAttribute('data-speed')) === speed); });
+  }
+  segStop.forEach(function(b){
+    b.addEventListener('click', function(){ stopMode = b.getAttribute('data-stop'); syncSeg(); });
+  });
+  segSpeed.forEach(function(b){
+    b.addEventListener('click', function(){ speed = Number(b.getAttribute('data-speed')); syncSeg(); });
+  });
+  syncSeg();
+
   // ===== モバイル用スケーリング =====
   var scaler = document.getElementById('scaler');
   function fit(){
-    var s = Math.min(window.innerWidth / 560, window.innerHeight / 880, 1);
+    // 実際の盤面の高さ（設定パネル込み）を測ってビューポートに収める
+    var h = scaler.firstElementChild.offsetHeight || 880;
+    var s = Math.min(window.innerWidth / 560, window.innerHeight / h, 1);
     scaler.style.transform = 'scale(' + s + ')';
   }
   window.addEventListener('resize', fit);
