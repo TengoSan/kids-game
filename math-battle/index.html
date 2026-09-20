@@ -39,24 +39,26 @@ body {
 .btn:active { transform: scale(0.95); }
 
 /* === スタート画面 === */
-#start-screen { gap: 16px; }
-.title { font-size: 2rem; text-shadow: 2px 2px 6px rgba(0,0,0,0.3); }
-.title-emoji { font-size: 3rem; display: block; margin-bottom: 8px; }
-.subtitle { font-size: 1rem; opacity: 0.9; margin-bottom: 8px; }
+#start-screen { gap: 12px; justify-content: flex-start; overflow-y: auto; padding-top: max(20px, env(safe-area-inset-top)); padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+#start-screen::before, #start-screen::after { content: ''; margin: auto; }
+.title { font-size: 1.9rem; text-shadow: 2px 2px 6px rgba(0,0,0,0.3); }
+.title-emoji { font-size: 2.6rem; display: block; margin-bottom: 4px; }
+.subtitle { font-size: 0.95rem; opacity: 0.9; margin-bottom: 4px; }
 
-.mode-section, .diff-section { width: 100%; max-width: 360px; text-align: center; }
+.mode-section, .diff-section, .play-section { width: 100%; max-width: 360px; text-align: center; }
 .section-label { font-size: 0.95rem; margin-bottom: 8px; opacity: 0.85; }
-.mode-btns, .diff-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-.mode-btn, .diff-btn {
+.mode-btns, .diff-btns, .play-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.mode-btn, .diff-btn, .play-btn {
   flex: 1; min-width: 90px; padding: 12px 8px; border: 3px solid rgba(255,255,255,0.4);
   border-radius: 14px; background: rgba(255,255,255,0.15); color: #fff;
   font-size: 1rem; font-weight: bold; font-family: inherit; cursor: pointer;
   transition: all 0.2s;
 }
-.mode-btn.selected, .diff-btn.selected {
+.mode-btn.selected, .diff-btn.selected, .play-btn.selected {
   background: rgba(255,255,255,0.95); color: #c0392b;
   border-color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
 }
+.play-desc { font-size: 0.8rem; opacity: 0.85; margin-top: 6px; min-height: 1.2em; }
 
 .start-btn { background: linear-gradient(135deg, #f1c40f, #f39c12); font-size: 1.4rem; padding: 16px 48px; margin-top: 8px; }
 .zukan-btn { background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); font-size: 1rem; padding: 10px 24px; }
@@ -64,9 +66,27 @@ body {
 /* === ゲーム画面 === */
 #game-screen { justify-content: space-between; padding: 16px; gap: 8px; }
 
+.status-row {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; max-width: 360px; padding-right: 86px; min-height: 40px;
+}
 .player-hp { display: flex; gap: 6px; font-size: 1.8rem; }
 .heart { transition: transform 0.3s, opacity 0.3s; }
 .heart.lost { opacity: 0.2; transform: scale(0.7); }
+
+/* === チャレンジモード表示 === */
+.challenge-info { display: none; flex-direction: column; align-items: flex-start; line-height: 1.25; }
+.challenge-info.show { display: flex; }
+.score-text { font-size: 1rem; font-weight: bold; }
+.combo-text { font-size: 0.85rem; color: #f1c40f; min-height: 1.1em; }
+.combo-text.pop { animation: pop 0.3s; }
+
+.timer-wrap { display: none; width: 100%; max-width: 360px; }
+.timer-wrap.show { display: block; }
+.timer-bar { width: 100%; height: 14px; background: rgba(0,0,0,0.3); border-radius: 7px; overflow: hidden; }
+.timer-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #3498db, #5dade2); border-radius: 7px; }
+.timer-fill.warn { background: linear-gradient(90deg, #e67e22, #f1c40f); }
+.timer-fill.danger { background: linear-gradient(90deg, #c0392b, #e74c3c); }
 
 .monster-area {
   display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1;
@@ -109,6 +129,9 @@ body {
 .result-title { font-size: 1.8rem; }
 .result-stars { font-size: 3rem; margin: 8px 0; }
 .result-score { font-size: 1.2rem; opacity: 0.9; }
+.result-sub { font-size: 1rem; opacity: 0.85; }
+.result-highscore { font-size: 1.05rem; font-weight: bold; }
+.result-highscore.newrecord { color: #f1c40f; animation: pop 0.6s 2; }
 .result-monsters { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin: 8px 0; }
 .result-monster { font-size: 2.2rem; animation: fadeIn 0.5s backwards; }
 .retry-btn { background: linear-gradient(135deg, #f1c40f, #f39c12); font-size: 1.2rem; }
@@ -225,6 +248,15 @@ body {
   <h1 class="title">たしざんひきざん<br>バトル</h1>
   <p class="subtitle">さんすうでモンスターをたおそう！</p>
 
+  <div class="play-section">
+    <div class="section-label">あそびかた</div>
+    <div class="play-btns">
+      <button class="play-btn selected" data-play="normal">ノーマル</button>
+      <button class="play-btn" data-play="challenge">🔥 チャレンジ</button>
+    </div>
+    <div class="play-desc" id="play-desc"></div>
+  </div>
+
   <div class="mode-section">
     <div class="section-label">もんだいのしゅるい</div>
     <div class="mode-btns">
@@ -251,7 +283,13 @@ body {
 <!-- ゲーム画面 -->
 <div id="game-screen" class="screen">
   <button class="exit-btn" id="exit-btn">✕ やめる</button>
-  <div class="player-hp" id="player-hp"></div>
+  <div class="status-row">
+    <div class="player-hp" id="player-hp"></div>
+    <div class="challenge-info" id="challenge-info">
+      <span class="score-text" id="score-text">⭐ 0てん</span>
+      <span class="combo-text" id="combo-text"></span>
+    </div>
+  </div>
   <div class="monster-area">
     <div class="attack-slash" id="attack-slash">⚔️</div>
     <div class="damage-num" id="damage-num">-1</div>
@@ -264,6 +302,9 @@ body {
     <div class="question-text" id="question-text"></div>
     <div class="question-count" id="question-count"></div>
   </div>
+  <div class="timer-wrap" id="timer-wrap">
+    <div class="timer-bar"><div class="timer-fill" id="timer-fill"></div></div>
+  </div>
   <div class="choices" id="choices"></div>
 </div>
 
@@ -272,6 +313,8 @@ body {
   <div class="result-title" id="result-title"></div>
   <div class="result-stars" id="result-stars"></div>
   <div class="result-score" id="result-score"></div>
+  <div class="result-sub" id="result-sub"></div>
+  <div class="result-highscore" id="result-highscore"></div>
   <div class="result-monsters" id="result-monsters"></div>
   <button class="btn retry-btn" id="retry-btn">もういちど あそぶ</button>
   <button class="btn home-btn" id="home-btn">もどる</button>
@@ -313,9 +356,22 @@ const DIFF_SETTINGS = {
   hard:   { minA: 10, maxA: 50, minB: 1, maxB: 9  },
 };
 
+const DIFF_LABELS = { easy: 'かんたん', normal: 'ふつう', hard: 'むずかしい' };
+
+/* チャレンジモード設定 */
+const CH_START_TIME = 8;    // 最初の制限時間（秒）
+const CH_MIN_TIME   = 3;    // これより短くはならない
+const CH_STEP_Q     = 5;    // 何問ごとに短くするか
+const CH_STEP_SEC   = 0.5;  // 1段階で短くなる秒数
+const CH_CORRECT_PT = 10;   // 正解の基本点
+const CH_COMBO_PT   = 2;    // コンボ1つあたりの追加点
+const CH_COMBO_MAX  = 10;   // コンボ加点の上限
+const CH_DEFEAT_PT  = 30;   // モンスター撃破ボーナス
+
 /* ===== 状態 ===== */
 let gameMode = 'add';    // add, sub, mix
 let difficulty = 'easy';
+let playMode = 'normal'; // normal, challenge
 let playerHP = 3;
 let currentMonster = null;
 let monsterCurrentHP = 0;
@@ -325,6 +381,17 @@ let currentAnswer = 0;
 let defeatedMonsters = [];  // このラウンドで倒したモンスター
 let monsterQueue = [];      // 出現予定モンスター
 let answering = false;
+let gameActive = false;  // バトル中かどうか（画面を離れたあとの予約処理を止める）
+let score = 0;
+let combo = 0;
+let maxCombo = 0;
+
+/* タイマー（チャレンジモード用） */
+let timerRAF = null;
+let timerEndAt = 0;
+let timerTotal = 0;
+let timerActive = false;
+let timerPausedByHide = false;
 
 /* ===== オーディオ ===== */
 const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -399,6 +466,20 @@ function sfxGameOver() {
   });
 }
 
+function sfxTimeUp() {
+  ensureAudio();
+  [660, 660].forEach((f, i) => {
+    setTimeout(() => playTone(f, 0.18, 'square', 0.12), i * 200);
+  });
+}
+
+function sfxNewRecord() {
+  ensureAudio();
+  [784, 988, 1175, 1568].forEach((f, i) => {
+    setTimeout(() => playTone(f, 0.3, 'triangle', 0.13), i * 110);
+  });
+}
+
 /* ===== 画面管理 ===== */
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -419,8 +500,30 @@ document.querySelectorAll('.diff-btn').forEach(btn => {
     document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     difficulty = btn.dataset.diff;
+    updatePlayDesc();
   });
 });
+
+document.querySelectorAll('.play-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.play-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    playMode = btn.dataset.play;
+    updatePlayDesc();
+  });
+});
+
+/* スタート画面の説明文（チャレンジは最高記録も出す） */
+function updatePlayDesc() {
+  const el = document.getElementById('play-desc');
+  if (playMode === 'challenge') {
+    const hs = getHighScore();
+    const rec = hs > 0 ? ` さいこうきろく ${hs}てん` : '';
+    el.textContent = `⏰ じかんせいげんあり！ どこまでいける？${rec}`;
+  } else {
+    el.textContent = `ぜんぶで${TOTAL_QUESTIONS}もん。じっくりかんがえよう！`;
+  }
+}
 
 /* ===== 問題生成 ===== */
 function randInt(min, max) {
@@ -480,16 +583,87 @@ function generateQuestion() {
   return { text, answer, choices };
 }
 
+/* ===== チャレンジモード: タイマー ===== */
+// 進むほど制限時間が短くなる（下限 CH_MIN_TIME 秒）
+function currentTimeLimit() {
+  const t = CH_START_TIME - Math.floor(questionIndex / CH_STEP_Q) * CH_STEP_SEC;
+  return Math.max(CH_MIN_TIME, t);
+}
+
+function startTimer() {
+  if (playMode !== 'challenge') return;
+  timerTotal = currentTimeLimit() * 1000;
+  timerEndAt = performance.now() + timerTotal;
+  timerActive = true;
+  const fill = document.getElementById('timer-fill');
+  fill.className = 'timer-fill';
+  fill.style.width = '100%';
+  cancelAnimationFrame(timerRAF);
+  timerRAF = requestAnimationFrame(tickTimer);
+}
+
+function tickTimer(now) {
+  if (!timerActive) return;
+  const remain = timerEndAt - now;
+  const ratio = Math.max(0, remain / timerTotal);
+  const fill = document.getElementById('timer-fill');
+  fill.style.width = (ratio * 100) + '%';
+  fill.className = 'timer-fill' + (ratio <= 0.25 ? ' danger' : ratio <= 0.5 ? ' warn' : '');
+  if (remain <= 0) { timerActive = false; handleTimeout(); return; }
+  timerRAF = requestAnimationFrame(tickTimer);
+}
+
+function stopTimer() {
+  timerActive = false;
+  cancelAnimationFrame(timerRAF);
+}
+
+/* ===== チャレンジモード: スコア表示 ===== */
+function updateChallengeInfo() {
+  const info = document.getElementById('challenge-info');
+  info.classList.toggle('show', playMode === 'challenge');
+  if (playMode !== 'challenge') return;
+  document.getElementById('score-text').textContent = `⭐ ${score}てん`;
+  const comboEl = document.getElementById('combo-text');
+  comboEl.textContent = combo >= 2 ? `🔥 ${combo}れんぞく！` : '';
+  if (combo >= 2) {
+    comboEl.classList.remove('pop');
+    void comboEl.offsetWidth;
+    comboEl.classList.add('pop');
+  }
+}
+
+/* ===== ハイスコア（むずかしさごと） ===== */
+function getHighScore() {
+  return parseInt(localStorage.getItem('mathbattle_highscore_' + difficulty) || '0', 10) || 0;
+}
+
+function saveHighScore(s) {
+  if (s > getHighScore()) {
+    localStorage.setItem('mathbattle_highscore_' + difficulty, String(s));
+    return true;  // 新記録
+  }
+  return false;
+}
+
 /* ===== モンスター選出 ===== */
 function buildMonsterQueue() {
-  // HP合計がTOTAL_QUESTIONS前後になるようにモンスターを選出
-  const queue = [];
-  let totalHP = 0;
   const shuffled = [...MONSTERS];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
+
+  // チャレンジは終わりがないので、よわい順にぜんぶ並べる（尽きたら作り直す）
+  if (playMode === 'challenge') {
+    return shuffled
+      .sort((a, b) => a.hp - b.hp)
+      .map(m => ({ ...m, currentHP: m.hp, maxHP: m.hp }));
+  }
+
+  // ノーマル: HP合計がTOTAL_QUESTIONS前後になるようにモンスターを選出
+  const queue = [];
+  let totalHP = 0;
   for (const m of shuffled) {
     if (totalHP + m.hp <= TOTAL_QUESTIONS) {
       queue.push({ ...m, currentHP: m.hp, maxHP: m.hp });
@@ -518,10 +692,17 @@ function startGame() {
   playerHP = 3;
   questionIndex = 0;
   correctCount = 0;
+  score = 0;
+  combo = 0;
+  maxCombo = 0;
   defeatedMonsters = [];
   monsterQueue = buildMonsterQueue();
   answering = false;
+  gameActive = true;
+  stopTimer();
   showScreen('game-screen');
+  document.getElementById('timer-wrap').classList.toggle('show', playMode === 'challenge');
+  updateChallengeInfo();
   renderHP();
   nextMonster();
 }
@@ -540,10 +721,13 @@ function renderHP() {
 
 /* ===== モンスター管理 ===== */
 function nextMonster() {
-  if (monsterQueue.length === 0 || questionIndex >= TOTAL_QUESTIONS) {
+  if (!gameActive) return;
+  if (playMode === 'normal' && (monsterQueue.length === 0 || questionIndex >= TOTAL_QUESTIONS)) {
     endGame();
     return;
   }
+  // チャレンジ: モンスターを出しきったら、また最初から
+  if (monsterQueue.length === 0) monsterQueue = buildMonsterQueue();
   currentMonster = monsterQueue.shift();
   monsterCurrentHP = currentMonster.maxHP;
 
@@ -567,7 +751,8 @@ function updateMonsterHP() {
 
 /* ===== 問題表示 ===== */
 function showQuestion() {
-  if (questionIndex >= TOTAL_QUESTIONS) {
+  if (!gameActive) return;
+  if (playMode === 'normal' && questionIndex >= TOTAL_QUESTIONS) {
     endGame();
     return;
   }
@@ -576,7 +761,9 @@ function showQuestion() {
   currentAnswer = q.answer;
 
   document.getElementById('question-text').textContent = q.text;
-  document.getElementById('question-count').textContent = `${questionIndex + 1} / ${TOTAL_QUESTIONS} もん`;
+  document.getElementById('question-count').textContent = playMode === 'challenge'
+    ? `${questionIndex + 1}もんめ ⏰${currentTimeLimit()}びょう`
+    : `${questionIndex + 1} / ${TOTAL_QUESTIONS} もん`;
 
   const choicesEl = document.getElementById('choices');
   choicesEl.innerHTML = '';
@@ -588,6 +775,7 @@ function showQuestion() {
     choicesEl.appendChild(btn);
   });
   answering = true;
+  startTimer();
 }
 
 /* ===== 攻撃エフェクト ===== */
@@ -615,80 +803,127 @@ function playAttackEffect() {
 function handleAnswer(val, btn) {
   if (!answering) return;
   answering = false;
+  stopTimer();
   ensureAudio();
 
-  const allBtns = document.querySelectorAll('.choice-btn');
+  if (val === currentAnswer) onCorrect(btn);
+  else onMiss(btn);
+}
 
-  if (val === currentAnswer) {
-    // 正解
-    sfxCorrect();
-    btn.classList.add('correct');
-    allBtns.forEach(b => { if (b !== btn) b.classList.add('disabled'); });
-    correctCount++;
-    questionIndex++;
+/* 時間切れ（チャレンジモードのみ）。不正解とおなじあつかい */
+function handleTimeout() {
+  if (!answering || !gameActive) return;
+  answering = false;
+  stopTimer();
+  sfxTimeUp();
+  document.getElementById('question-count').textContent = '⏰ タイムアップ！';
+  onMiss(null);
+}
 
-    // モンスターにダメージ
-    monsterCurrentHP--;
-    updateMonsterHP();
+function onCorrect(btn) {
+  sfxCorrect();
+  btn.classList.add('correct');
+  document.querySelectorAll('.choice-btn').forEach(b => { if (b !== btn) b.classList.add('disabled'); });
+  correctCount++;
+  questionIndex++;
 
-    const emojiEl = document.getElementById('monster-emoji');
-    emojiEl.classList.add('hit');
-    setTimeout(() => emojiEl.classList.remove('hit'), 400);
+  // コンボと得点（チャレンジモードのみ）
+  combo++;
+  if (combo > maxCombo) maxCombo = combo;
+  score += CH_CORRECT_PT + Math.min(combo - 1, CH_COMBO_MAX) * CH_COMBO_PT;
 
-    // 攻撃エフェクト
-    playAttackEffect();
+  // モンスターにダメージ
+  monsterCurrentHP--;
+  updateMonsterHP();
 
-    if (monsterCurrentHP <= 0) {
-      // モンスター撃破
-      setTimeout(() => {
-        sfxDefeat();
-        emojiEl.classList.add('defeated');
-        defeatedMonsters.push(currentMonster);
-        saveCollection(currentMonster.id);
-        setTimeout(() => nextMonster(), 900);
-      }, 500);
-    } else {
-      setTimeout(() => showQuestion(), 600);
-    }
+  const emojiEl = document.getElementById('monster-emoji');
+  emojiEl.classList.add('hit');
+  setTimeout(() => emojiEl.classList.remove('hit'), 400);
+
+  playAttackEffect();
+
+  if (monsterCurrentHP <= 0) {
+    score += CH_DEFEAT_PT;
+    updateChallengeInfo();
+    // モンスター撃破
+    setTimeout(() => {
+      sfxDefeat();
+      emojiEl.classList.add('defeated');
+      defeatedMonsters.push(currentMonster);
+      saveCollection(currentMonster.id);
+      setTimeout(() => nextMonster(), 900);
+    }, 500);
   } else {
-    // 不正解
+    updateChallengeInfo();
+    setTimeout(() => showQuestion(), 600);
+  }
+}
+
+/* btn が null のときは時間切れ */
+function onMiss(btn) {
+  if (btn) {
     sfxWrong();
     btn.classList.add('wrong');
-    // 正解を緑に
-    allBtns.forEach(b => {
-      if (parseInt(b.textContent) === currentAnswer) b.classList.add('correct');
-      else if (b !== btn) b.classList.add('disabled');
-    });
-    playerHP--;
-    questionIndex++;
-    renderHP();
+  }
+  // 正解を緑に、ほかは押せなくする
+  document.querySelectorAll('.choice-btn').forEach(b => {
+    if (parseInt(b.textContent, 10) === currentAnswer) b.classList.add('correct');
+    else if (b !== btn) b.classList.add('disabled');
+  });
 
-    if (playerHP <= 0) {
-      setTimeout(() => {
-        sfxGameOver();
-        endGame();
-      }, 800);
-    } else {
-      setTimeout(() => showQuestion(), 1000);
-    }
+  combo = 0;
+  updateChallengeInfo();
+  playerHP--;
+  questionIndex++;
+  renderHP();
+
+  if (playerHP <= 0) {
+    setTimeout(() => {
+      sfxGameOver();
+      endGame();
+    }, 800);
+  } else {
+    setTimeout(() => showQuestion(), 1000);
   }
 }
 
 /* ===== ゲーム終了 ===== */
 function endGame() {
-  sfxResult();
+  gameActive = false;
+  stopTimer();
   showScreen('result-screen');
 
-  const pct = Math.round((correctCount / TOTAL_QUESTIONS) * 100);
-  let stars = 0;
-  if (pct >= 90) stars = 3;
-  else if (pct >= 70) stars = 2;
-  else if (pct >= 50) stars = 1;
+  const subEl = document.getElementById('result-sub');
+  const hsEl = document.getElementById('result-highscore');
 
-  const isGameOver = playerHP <= 0;
-  document.getElementById('result-title').textContent = isGameOver ? 'ゲームオーバー…' : 'バトルしゅうりょう！';
-  document.getElementById('result-stars').textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
-  document.getElementById('result-score').textContent = `${TOTAL_QUESTIONS}もんちゅう ${correctCount}もん せいかい！（${pct}%）`;
+  if (playMode === 'challenge') {
+    const isNewRecord = saveHighScore(score);
+    if (isNewRecord) sfxNewRecord(); else sfxResult();
+
+    document.getElementById('result-title').textContent = 'チャレンジ おわり！';
+    document.getElementById('result-stars').textContent = '⭐';
+    document.getElementById('result-score').textContent = `${score}てん！`;
+    subEl.textContent = `${correctCount}もん せいかい／さいこう ${maxCombo}れんぞく`;
+    hsEl.textContent = isNewRecord
+      ? '🏆 しんきろく！おめでとう！'
+      : `${DIFF_LABELS[difficulty]}のさいこうきろく ${getHighScore()}てん`;
+    hsEl.classList.toggle('newrecord', isNewRecord);
+  } else {
+    sfxResult();
+    const pct = Math.round((correctCount / TOTAL_QUESTIONS) * 100);
+    let stars = 0;
+    if (pct >= 90) stars = 3;
+    else if (pct >= 70) stars = 2;
+    else if (pct >= 50) stars = 1;
+
+    const isGameOver = playerHP <= 0;
+    document.getElementById('result-title').textContent = isGameOver ? 'ゲームオーバー…' : 'バトルしゅうりょう！';
+    document.getElementById('result-stars').textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+    document.getElementById('result-score').textContent = `${TOTAL_QUESTIONS}もんちゅう ${correctCount}もん せいかい！（${pct}%）`;
+    subEl.textContent = '';
+    hsEl.textContent = '';
+    hsEl.classList.remove('newrecord');
+  }
 
   const monstersEl = document.getElementById('result-monsters');
   monstersEl.innerHTML = '';
@@ -749,17 +984,40 @@ function renderZukan() {
 }
 
 /* ===== イベント ===== */
+function backToStart() {
+  gameActive = false;
+  stopTimer();
+  updatePlayDesc();   // 最高記録を出しなおす
+  showScreen('start-screen');
+}
+
 document.getElementById('start-btn').addEventListener('click', startGame);
 document.getElementById('retry-btn').addEventListener('click', startGame);
-document.getElementById('home-btn').addEventListener('click', () => showScreen('start-screen'));
+document.getElementById('home-btn').addEventListener('click', backToStart);
 document.getElementById('zukan-open-btn').addEventListener('click', () => {
   renderZukan();
   showScreen('zukan-screen');
 });
 document.getElementById('zukan-back-btn').addEventListener('click', () => showScreen('start-screen'));
 document.getElementById('exit-btn').addEventListener('click', () => {
-  if (confirm('バトルをやめてもどりますか？')) showScreen('start-screen');
+  // 確認ダイアログの間はタイマーを止める
+  const wasRunning = timerActive;
+  stopTimer();
+  if (confirm('バトルをやめてもどりますか？')) backToStart();
+  else if (wasRunning && answering) startTimer();
 });
+
+// 他のアプリに切り替えた間にタイムアップにならないようにする
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (timerActive) { timerPausedByHide = true; stopTimer(); }
+  } else if (timerPausedByHide) {
+    timerPausedByHide = false;
+    if (answering) startTimer();
+  }
+});
+
+updatePlayDesc();
 
 /* ===== PWA ===== */
 if ('serviceWorker' in navigator) {
