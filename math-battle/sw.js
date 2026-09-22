@@ -1,4 +1,4 @@
-const CACHE_NAME = 'math-battle-v5';
+const CACHE_NAME = 'math-battle-v6';
 const ASSETS = [
   './',
   './index.html',

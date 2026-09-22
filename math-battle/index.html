@@ -125,7 +125,8 @@ body {
 .choice-btn.disabled { pointer-events: none; opacity: 0.5; }
 
 /* === 結果画面 === */
-#result-screen { gap: 16px; }
+#result-screen { gap: 16px; justify-content: flex-start; overflow-y: auto; text-align: center; }
+#result-screen::before, #result-screen::after { content: ''; margin: auto; }
 .result-title { font-size: 1.8rem; }
 .result-stars { font-size: 3rem; margin: 8px 0; }
 .result-score { font-size: 1.2rem; opacity: 0.9; }
@@ -331,21 +332,41 @@ body {
 <script>
 /* ===== 定数 ===== */
 const MONSTERS = [
+  // ※ 先頭はスライムのまま（ノーマルモードの穴埋めに使う）。id に _ は使わない
+  // --- HP2 ---
   { id: 'slime',   emoji: '🟢', name: 'スライム',     hp: 2 },
   { id: 'ghost',   emoji: '👻', name: 'おばけ',       hp: 2 },
   { id: 'bat',     emoji: '🦇', name: 'コウモリ',     hp: 2 },
   { id: 'spider',  emoji: '🕷️', name: 'くも',         hp: 2 },
   { id: 'snake',   emoji: '🐍', name: 'へび',         hp: 2 },
+  { id: 'germ',    emoji: '🦠', name: 'ばいきん',     hp: 2 },
+  { id: 'bee',     emoji: '🐝', name: 'ハチ',         hp: 2 },
+  { id: 'crab',    emoji: '🦀', name: 'カニ',         hp: 2 },
+  { id: 'pumpkin', emoji: '🎃', name: 'かぼちゃおばけ', hp: 2 },
+  // --- HP3 ---
   { id: 'wolf',    emoji: '🐺', name: 'おおかみ',     hp: 3 },
   { id: 'bear',    emoji: '🐻', name: 'くま',         hp: 3 },
   { id: 'imp',     emoji: '👿', name: 'こあくま',     hp: 3 },
   { id: 'oni',     emoji: '👹', name: 'おに',         hp: 3 },
   { id: 'alien',   emoji: '👽', name: 'うちゅうじん', hp: 3 },
   { id: 'robot',   emoji: '🤖', name: 'ロボット',     hp: 3 },
+  { id: 'skull',   emoji: '💀', name: 'ガイコツ',     hp: 3 },
+  { id: 'zombie',  emoji: '🧟', name: 'ゾンビ',       hp: 3 },
+  { id: 'shark',   emoji: '🦈', name: 'サメ',         hp: 3 },
+  { id: 'croc',    emoji: '🐊', name: 'ワニ',         hp: 3 },
+  { id: 'invader', emoji: '👾', name: 'インベーダー', hp: 3 },
+  { id: 'octopus', emoji: '🐙', name: 'タコ',         hp: 3 },
+  // --- HP4 ---
   { id: 'wizard',  emoji: '🧙', name: 'まほうつかい', hp: 4 },
   { id: 'dragon',  emoji: '🐉', name: 'ドラゴン',     hp: 4 },
   { id: 'unicorn', emoji: '🦄', name: 'ユニコーン',   hp: 4 },
+  { id: 'vampire', emoji: '🧛', name: 'きゅうけつき', hp: 4 },
+  { id: 'tengu',   emoji: '👺', name: 'てんぐ',       hp: 4 },
+  { id: 'genie',   emoji: '🧞', name: 'まじん',       hp: 4 },
+  // --- HP5 ---
   { id: 'phoenix', emoji: '🔥', name: 'フェニックス', hp: 5 },
+  { id: 'trex',    emoji: '🦖', name: 'きょうりゅう', hp: 5 },
+  { id: 'kraken',  emoji: '🦑', name: 'クラーケン',   hp: 5 },
 ];
 
 const TOTAL_QUESTIONS = 10;
