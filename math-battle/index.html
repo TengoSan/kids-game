@@ -661,26 +661,20 @@ function buildMonsterQueue() {
       .map(m => ({ ...m, currentHP: m.hp, maxHP: m.hp }));
   }
 
-  // ノーマル: HP合計がTOTAL_QUESTIONS前後になるようにモンスターを選出
+  // ノーマル: HP合計がちょうどTOTAL_QUESTIONSになるようにモンスターを選出
+  // HP1のモンスターはいないので「のこり1」になる選び方をすると10ぴったりにできない。
+  // だから、のこりが0か2以上になるモンスターだけを、シャッフル順に選んでいく
   const queue = [];
-  let totalHP = 0;
-  for (const m of shuffled) {
-    if (totalHP + m.hp <= TOTAL_QUESTIONS) {
+  let rest = TOTAL_QUESTIONS; // あと何HPぶん必要か
+  while (rest > 0) {
+    const m = shuffled.find(c => c.hp <= rest && rest - c.hp !== 1 && !queue.some(q => q.id === c.id));
+    if (m) {
       queue.push({ ...m, currentHP: m.hp, maxHP: m.hp });
-      totalHP += m.hp;
-    }
-    if (totalHP >= TOTAL_QUESTIONS) break;
-  }
-  // HPが足りなければ弱いモンスターで埋める
-  while (totalHP < TOTAL_QUESTIONS) {
-    const weak = shuffled.find(m => m.hp <= TOTAL_QUESTIONS - totalHP && !queue.find(q => q.id === m.id));
-    if (weak) {
-      queue.push({ ...weak, currentHP: weak.hp, maxHP: weak.hp });
-      totalHP += weak.hp;
+      rest -= m.hp;
     } else {
-      // 最終手段: HP2のスライムを複製
-      queue.push({ ...MONSTERS[0], currentHP: MONSTERS[0].hp, maxHP: MONSTERS[0].hp, id: MONSTERS[0].id + '_' + totalHP });
-      totalHP += MONSTERS[0].hp;
+      // 最終手段: HP2のスライムを複製（いまのモンスター構成では起きない。無限ループ防止の保険）
+      queue.push({ ...MONSTERS[0], currentHP: MONSTERS[0].hp, maxHP: MONSTERS[0].hp, id: MONSTERS[0].id + '_' + rest });
+      rest -= MONSTERS[0].hp;
     }
   }
   return queue;
