@@ -80,6 +80,7 @@ Promise.all([d3.json(MAP_URL), d3.json(ZIP_URL)]).then(([topo, zips]) => {
   const prefMesh = topojson.mesh(topo, obj, (a, b) => a.properties.N03_001 !== b.properties.N03_001);
   g.append('path').attr('class', 'pref-border').datum(prefMesh);
   g.append('g').attr('class', 'hit-layer');
+  g.append('g').attr('class', 'target-layer'); // タイムアタックの出題地域（いちばん上に枠で示す）
 
   draw();
   document.getElementById('loading').remove();
@@ -111,6 +112,7 @@ function draw() {
   g.select('.pref-border').attr('d', path);
   g.select('.hit-layer').selectAll('path').attr('d', path);
   g.select('.town-layer').selectAll('path').attr('d', path);
+  g.select('.target-layer').selectAll('path').attr('d', path);
 
   if (currentFocus) applyFocus(currentFocus, 0);
   else svg.call(zoom.transform, d3.zoomIdentity);
@@ -172,7 +174,7 @@ function applyFocus(focus, duration) {
     ratio = 0.7;
   } else {
     box = boundsOf(focus.features);
-    ratio = focus.features.length <= 3 ? FIT_RATIO_FEW : FIT_RATIO_MANY;
+    ratio = focus.ratio || (focus.features.length <= 3 ? FIT_RATIO_FEW : FIT_RATIO_MANY);
   }
   zoomToBox(box, ratio, duration);
 }
@@ -534,6 +536,7 @@ function setDigits(text) {
   if (digits !== lastDigits) {
     lastDigits = digits;
     update(digits);
+    if (window.onZipChange) window.onZipChange(digits); // タイムアタック（game.js）の正解判定
   }
 }
 

@@ -14,6 +14,22 @@
       <h1>〒 ゆうびんばんごうマップ</h1>
       <a class="top-link" href="../">トップへ戻る</a>
     </div>
+    <div class="mode-tabs" role="tablist">
+      <button type="button" data-mode="free" class="active">自由入力</button>
+      <button type="button" data-mode="game">タイムアタック</button>
+    </div>
+    <div id="game-bar" hidden>
+      <div class="game-top">
+        <div id="game-question" class="game-question"></div>
+        <button type="button" id="pass-btn">パス</button>
+      </div>
+      <div class="game-meta">
+        <span id="game-time">残り 0秒</span>
+        <span id="game-score">正解 0</span>
+        <span id="game-status" class="game-status"></span>
+      </div>
+      <div class="time-track"><div id="game-time-bar"></div></div>
+    </div>
     <form id="search-form" autocomplete="off">
       <!-- inputmode="none": スマホでは画面のテンキーで入力するので、端末のキーボードは出さない -->
       <input id="zip-input" type="text" inputmode="none" maxlength="8"
@@ -25,6 +41,7 @@
   <main id="map-wrap">
     <svg id="map" role="img" aria-label="日本地図"></svg>
     <div id="loading">地図を読み込み中…</div>
+    <div id="game-card" class="game-card" hidden></div>
     <div class="map-buttons">
       <button type="button" id="zoom-in" aria-label="拡大">＋</button>
       <button type="button" id="zoom-out" aria-label="縮小">－</button>
@@ -63,6 +80,7 @@
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
   <script src="app.js"></script>
+  <script src="game.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(function () {});

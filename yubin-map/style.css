@@ -11,6 +11,8 @@
   --hit: #e2572b;
   --accent: #e2572b;
   --error: #c0392b;
+  --target: #12897a;
+  --ok: #2e8b57;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -26,6 +28,8 @@
     --hit: #ff7a45;
     --accent: #ff7a45;
     --error: #ff6b5b;
+    --target: #3fd0bd;
+    --ok: #5fd08a;
   }
 }
 
@@ -189,3 +193,104 @@ footer { padding: 6px 16px; font-size: .7rem; color: var(--muted); background: v
   #map-wrap { grid-area: map; }
   footer { grid-area: footer; }
 }
+
+/* ---------- タイムアタック ---------- */
+.mode-tabs { display: flex; gap: 4px; margin-bottom: 8px; max-width: 420px; }
+.mode-tabs button {
+  flex: 1;
+  height: 36px;
+  font: inherit;
+  font-size: .95rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+}
+.mode-tabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: bold; }
+
+#game-bar { margin-bottom: 8px; max-width: 420px; }
+.game-top { display: flex; align-items: center; gap: 8px; }
+.game-question { flex: 1; font-size: 1.2rem; font-weight: bold; color: var(--target); }
+.game-question .qno { font-size: .85rem; color: var(--muted); font-weight: normal; margin-right: 4px; }
+#pass-btn {
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 14px;
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+.game-meta { display: flex; gap: 12px; margin-top: 4px; font-size: .9rem; color: var(--muted); }
+.game-status { font-weight: bold; }
+.game-status.correct { color: var(--ok); }
+.game-status.off { color: var(--error); }
+.game-status.info { color: var(--text); }
+.time-track { height: 6px; margin-top: 6px; border-radius: 3px; background: var(--bg); overflow: hidden; }
+#game-time-bar { height: 100%; width: 100%; background: var(--target); }
+#game-time-bar.low { background: var(--error); }
+
+/* 出題地域：青緑の太い枠と薄い塗り */
+.target-area {
+  fill: var(--target);
+  fill-opacity: .18;
+  stroke: var(--target);
+  stroke-width: 3px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+/* 難易度選択・結果のカード（地図の上に重ねる） */
+.game-card {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(92%, 420px);
+  max-height: 92%;
+  overflow: auto;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: 0 4px 20px rgba(0,0,0,.3);
+  z-index: 2;
+}
+.game-card h2 { margin: 0 0 8px; font-size: 1.2rem; }
+.game-card p { margin: 0 0 12px; font-size: .9rem; line-height: 1.6; color: var(--muted); }
+.game-card .final-score { font-size: 1.1rem; color: var(--text); }
+.game-card .final-score strong { font-size: 2rem; color: var(--accent); }
+.level-buttons { display: grid; gap: 8px; }
+.level-buttons button, .card-actions button {
+  font: inherit;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+.level-buttons button {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  align-items: center;
+  padding: 10px 14px;
+  text-align: left;
+}
+.level-name { grid-row: span 2; font-size: 1.3rem; font-weight: bold; color: var(--accent); }
+.level-desc { font-size: .95rem; }
+.level-best { font-size: .8rem; color: var(--muted); }
+.card-actions { display: flex; gap: 8px; }
+.card-actions button { flex: 1; height: 44px; }
+.card-actions button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: bold; }
+
+/* カードを出している間は入力まわりを隠して、地図の領域（カードの置き場）を広くとる */
+body.card-open #keypad,
+body.card-open #search-form,
+body.card-open #result { display: none; }
+
+/* ゲーム中は候補の説明文を隠して地図を広くとる（正誤はゲームのバーに出す） */
+body.game-mode #result { display: none; }

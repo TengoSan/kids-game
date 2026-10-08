@@ -1,9 +1,10 @@
-const CACHE_NAME = 'yubin-map-v6';
+const CACHE_NAME = 'yubin-map-v7';
 const ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
+  './game.js',
   './manifest.json',
   './data/municipalities.json',
   './data/zipindex.json',
