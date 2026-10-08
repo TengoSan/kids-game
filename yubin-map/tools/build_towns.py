@@ -1,9 +1,14 @@
-# 郵便番号ごとの「市区町村名・町名・代表地点（緯度経度）」を、上3桁ごとの JSON に書き出す
-# 使い方: python3 -I build_towns.py <yubinbango data dir> <Geolonia latest.csv> <出力dir>
+# 郵便番号ごとの「市区町村名・町名・代表地点（緯度経度）・町丁目の境界」を、上3桁ごとの JSON に書き出す
+# 使い方: python3 -I build_towns.py <yubinbango data dir> <Geolonia latest.csv> <出力dir> <municipalities.json> <shapes dir>
 #   yubinbango data: https://github.com/yubinbango/yubinbango-data （日本郵便の郵便番号データ）
 #   Geolonia latest.csv: https://geolonia.github.io/japanese-addresses/latest.csv （CC BY 4.0）
-# 出力: <出力dir>/231.json = {"c": ["横浜市中区", ...], "z": {"0017": [市区町村番号, "港町", 緯度, 経度], ...},
+#   municipalities.json: 地図の市区町村境界（data/municipalities.json）
+#   shapes dir: build_town_shapes.sh で作った町丁目境界（data/shapes/市区町村コード.json）
+# 出力: <出力dir>/231.json = {"c": ["横浜市中区", ...],
+#                                "z": {"0017": [市区町村番号, "港町", 緯度, 経度, "14104:12,13,14"], ...},
 #                                "b": [事業所・私書箱用の番号の下4桁, ...]}
+#   5項目目は町丁目境界の参照（「市区町村コード:その市区町村ファイル内の番号,...」を | でつなぐ）。
+#   位置が分からない場合、緯度・経度は null
 import csv
 import glob
 import json
@@ -12,7 +17,7 @@ import re
 import sys
 from collections import defaultdict
 
-src_dir, geo_csv, out_dir = sys.argv[1:4]
+src_dir, geo_csv, out_dir, topo_path, shapes_dir = sys.argv[1:6]
 
 PREFS = ['北海道', '青森県', '岩手県', '宮城県', '秋田県', '山形県', '福島県', '茨城県', '栃木県', '群馬県',
          '埼玉県', '千葉県', '東京都', '神奈川県', '新潟県', '富山県', '石川県', '福井県', '山梨県', '長野県',
@@ -124,6 +129,82 @@ def find_city(pref, city):
     return found
 
 
+# ---------- 町丁目の境界（e-Stat）----------
+# 地図の市区町村: (都道府県, 市区町村名) → 市区町村コード（build_zipindex.py と同じ照合）
+topo = json.load(open(topo_path, encoding='utf-8'))
+munis = []
+for gm in list(topo['objects'].values())[0]['geometries']:
+    pp = gm['properties']
+    munis.append((pp['N03_001'], (pp['N03_003'] or '') + (pp['N03_004'] or ''), pp['N03_003'], pp['N03_004'], pp['N03_007']))
+
+
+def map_codes(pref, city):
+    city = norm(city)
+    in_pref = [m for m in munis if m[0] == pref]
+    exact = {m[4] for m in in_pref if norm(m[1]) == city or norm(m[3] or '') == city}
+    if exact:
+        return exact
+    tail = {m[4] for m in in_pref if m[3] and city.endswith(norm(m[3]))}
+    if len(tail) == 1:
+        return tail
+    return {m[4] for m in in_pref if m[2] and m[2].endswith('市') and city.startswith(m[2])}
+
+
+class Shapes:
+    """1つの市区町村の町丁目境界の一覧。町名 → 境界の番号 を引けるようにしておく"""
+
+    def __init__(self, names):
+        self.exact = defaultdict(list)  # 港町一丁目、延沢（上延沢）→ 延沢
+        self.base = defaultdict(list)   # 丁目を外した町名（港町）
+        for i, n in enumerate(names):
+            k = town_key(clean_town(n or ''))
+            if not k:
+                continue
+            self.exact[k].append(i)
+            self.base[CHOME.sub('', k)].append(i)
+
+    def locate(self, town):
+        if not town:
+            return []
+        t = town_key(town)
+        for table in (self.exact, self.base):
+            if t in table:
+                return table[t]
+        # 境界側の方が細かく分かれている（郵便番号「周東町祖生」→ 境界「周東町祖生西光寺」「周東町祖生今岡」…）
+        children = [i for b, idx in self.base.items() if len(t) >= 2 and b.startswith(t) for i in idx]
+        if children:
+            return children
+        # 京都市など、境界側の町名の頭に元学区名が付く（郵便番号「橋弁慶町」→ 境界「明倫橋弁慶町」）
+        if len(t) >= 3:
+            tails = [b for b in self.base if b.endswith(t)]
+            if 0 < len(tails) <= 3:
+                return [i for b in tails for i in self.base[b]]
+        # 後ろに建物名や地区名が続く町名（「西新宿新宿パークタワー１６階」）は、先頭が一致するいちばん長い町名で代用
+        best = max((b for b in self.base if len(b) >= 2 and t.startswith(b)), key=len, default=None)
+        return self.base[best] if best else []
+
+
+shapes = {}
+for p in glob.glob(os.path.join(shapes_dir, '*.json')):
+    d = json.load(open(p, encoding='utf-8'))
+    geoms = list(d['objects'].values())[0]['geometries']
+    shapes[os.path.basename(p)[:-5]] = Shapes([gm.get('properties', {}).get('N') for gm in geoms])
+
+code_cache = {}
+
+
+def shape_ref(pref, city, t):
+    key = (pref, city)
+    if key not in code_cache:
+        code_cache[key] = sorted(map_codes(pref, city))
+    parts = []
+    for c in code_cache[key]:
+        idx = shapes[c].locate(t) if c in shapes else []
+        if idx:
+            parts.append(c + ':' + ','.join(map(str, sorted(set(idx)))))
+    return '|'.join(parts)
+
+
 files = defaultdict(lambda: {'c': [], 'z': {}, 'b': []})
 stats = defaultdict(int)
 for path in sorted(glob.glob(os.path.join(src_dir, '*.js'))):
@@ -139,6 +220,7 @@ for path in sorted(glob.glob(os.path.join(src_dir, '*.js'))):
         if city not in out['c']:
             out['c'].append(city)
         entry = [out['c'].index(city), town]
+        ref = shape_ref(pref, city, t)
         if pts:
             entry += [round(sum(p[0] for p in pts) / len(pts), 4), round(sum(p[1] for p in pts) / len(pts), 4)]
             stats['位置あり'] += 1
@@ -146,6 +228,11 @@ for path in sorted(glob.glob(os.path.join(src_dir, '*.js'))):
             stats['町名なし（市区町村のみ）'] += 1
         else:
             stats['位置なし'] += 1
+        if ref:
+            if not pts:
+                entry += [None, None]
+            entry.append(ref)
+            stats['境界あり'] += 1
         out['z'][zipcode[3:]] = entry
         if len(row) >= 4:  # 4項目目（番地・事業所名など）があるのは事業所・私書箱用の番号
             out['b'].append(zipcode[3:])

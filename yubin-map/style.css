@@ -116,6 +116,17 @@ h1 { margin: 0; font-size: 1.2rem; }
 .muni.in-pref { fill: var(--pref-hit); }
 .muni.hit { fill: var(--hit); }
 #map.has-pins .muni.hit { fill-opacity: .45; }
+#map.has-towns .muni.hit { fill-opacity: .2; }
+
+/* 町丁目の境界。候補の町は塗る */
+.town {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: .6px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.town.hit { fill: var(--hit); }
 .pref-border {
   fill: none;
   stroke: var(--pref-border);
@@ -135,6 +146,8 @@ h1 { margin: 0; font-size: 1.2rem; }
 /* 町の位置を示すピン（拡大しても大きさは変わらない） */
 .pin-layer { pointer-events: none; }
 .pin circle { fill: var(--panel); stroke: var(--text); stroke-width: 3px; } /* 塗った地域（オレンジ）の上でも見える配色 */
+.pin.label-only circle { display: none; }
+.pin.label-only text { text-anchor: middle; }
 .pin text {
   font-size: 13px;
   font-weight: bold;

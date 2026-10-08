@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yubin-map-v5';
+const CACHE_NAME = 'yubin-map-v6';
 const ASSETS = [
   './',
   './index.html',
@@ -26,8 +26,9 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // 町データ（data/towns/上3桁.json）は使った分だけ保存して、次回からはオフラインでも使えるようにする
-  if (e.request.url.includes('/data/towns/')) {
+  // 町データ（data/towns/上3桁.json）と町丁目の境界（data/shapes/市区町村コード.json）は
+  // 使った分だけ保存して、次回からはオフラインでも使えるようにする
+  if (e.request.url.includes('/data/towns/') || e.request.url.includes('/data/shapes/')) {
     e.respondWith(
       caches.open(CACHE_NAME).then(c =>
         c.match(e.request).then(r => r || fetch(e.request).then(res => {

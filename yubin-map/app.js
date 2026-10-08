@@ -2,12 +2,15 @@
 // 1. 全国の市区町村境界（TopoJSON）と、市区町村ごとの郵便番号一覧を読み込む
 // 2. 入力された数字で始まる郵便番号を持つ市区町村を塗り、そこへズームする
 //    （1桁ごとに候補が絞られていく）
-// 3. 3桁以上入力されたら町（港町など）の一覧と位置を読み込み、候補の町が少なくなったら
-//    町の位置にピンを立てて寄る（市区町村の中での6・7桁目の違いが見えるように）
+// 3. 3桁以上入力されたら町（港町など）の一覧と位置を読み込む。市区町村が3つ以下に絞られたら
+//    その町丁目の境界を重ね、候補の町を塗る。候補の町が少なくなったら町名を出してそこへ寄る
+//    （市区町村の中での6・7桁目の違いが見えるように。境界が見つからない町はピンで示す）
 
 const MAP_URL = 'data/municipalities.json';
 const ZIP_URL = 'data/zipindex.json';
 const TOWNS_URL = (head) => `data/towns/${head}.json`; // 上3桁ごとの町名・位置
+const SHAPES_URL = (code) => `data/shapes/${code}.json`; // 市区町村ごとの町丁目境界
+const TOWN_LAYER_LIMIT = 3; // 市区町村がこの数以下に絞られたら町丁目の境界を重ねる
 const MAX_ZOOM = 8000; // 町が数百mおきに並ぶ都心部でもピンが重ならないところまで寄れるよう大きめ
 // 塗った地域が画面の何割を占めるまで寄るか。
 // 1〜3市区町村なら周りの地域も見えるよう控えめに、それより多いときは候補全体が大きく見えるように
@@ -32,6 +35,8 @@ let path = null;
 let projection = null;
 let currentPins = [];    // いま立てているピン { name, lng, lat }
 const townCache = new Map(); // 上3桁 → 町データ（読み込み済み）
+const shapeData = new Map();    // 市区町村コード → 町丁目の地形（読み込み済み）
+const shapeLoading = new Map(); // 市区町村コード → 読み込み中の Promise
 let muniPaths = null;
 let currentHits = [];    // いま塗っている市区町村
 let currentFocus = null; // いまズームしている範囲（画面サイズが変わったら同じ範囲に寄り直す）
@@ -69,6 +74,8 @@ Promise.all([d3.json(MAP_URL), d3.json(ZIP_URL)]).then(([topo, zips]) => {
     .attr('class', 'muni');
   muniPaths.append('title').text((f) => f.properties.N03_001 + displayName(f));
 
+  g.append('g').attr('class', 'town-layer'); // 町丁目の境界（市区町村の塗りの上、県境の下）
+
   // 隣り合う市区町村の都道府県が違うところだけを線にする → 県境
   const prefMesh = topojson.mesh(topo, obj, (a, b) => a.properties.N03_001 !== b.properties.N03_001);
   g.append('path').attr('class', 'pref-border').datum(prefMesh);
@@ -85,7 +92,11 @@ Promise.all([d3.json(MAP_URL), d3.json(ZIP_URL)]).then(([topo, zips]) => {
 // 画面サイズに合わせて地図を描き直す
 function draw() {
   const { width, height } = svg.node().getBoundingClientRect();
-  if (!width || !height) return; // 画面の切り替え途中などで地図の大きさが0のときは描かない
+  if (!width || !height) {
+    // 画面の切り替え途中などで地図の大きさが0のときは描かない。まだ一度も描けていなければ少し待って再挑戦
+    if (!path) setTimeout(draw, 200);
+    return;
+  }
   svg.attr('viewBox', `0 0 ${width} ${height}`);
   zoom.extent([[0, 0], [width, height]]).translateExtent([[-width, -height], [width * 2, height * 2]]);
 
@@ -99,6 +110,7 @@ function draw() {
   muniPaths.attr('d', path);
   g.select('.pref-border').attr('d', path);
   g.select('.hit-layer').selectAll('path').attr('d', path);
+  g.select('.town-layer').selectAll('path').attr('d', path);
 
   if (currentFocus) applyFocus(currentFocus, 0);
   else svg.call(zoom.transform, d3.zoomIdentity);
@@ -140,7 +152,15 @@ function applyFocus(focus, duration) {
   currentFocus = focus;
   let box;
   let ratio;
-  if (focus.pins) {
+  if (focus.towns) {
+    // 町丁目の境界（と、境界のない町のピン）がすべて入る範囲
+    box = boundsOf(focus.towns);
+    focus.extraPins.forEach((p) => {
+      const [x, y] = projection([p.lng, p.lat]);
+      box = [Math.min(box[0], x), Math.min(box[1], y), Math.max(box[2], x), Math.max(box[3], y)];
+    });
+    ratio = focus.ratio;
+  } else if (focus.pins) {
     const pts = focus.pins.map((p) => projection([p.lng, p.lat]));
     box = [d3.min(pts, (p) => p[0]), d3.min(pts, (p) => p[1]), d3.max(pts, (p) => p[0]), d3.max(pts, (p) => p[1])];
     const [mx0, my0, mx1, my1] = boundsOf(focus.muni);
@@ -188,10 +208,12 @@ function showPins(pins) {
     .join((enter) => {
       const pin = enter.append('g').attr('class', 'pin');
       pin.append('circle').attr('r', 7);
-      pin.append('text').attr('x', 11).attr('y', 5);
+      pin.append('text').attr('y', 5);
       return pin;
     });
-  sel.select('text').text((p) => p.name); // 重なる町名は placePins で隠す
+  // 境界を塗った町は丸を付けず、町名だけを区画の真ん中に出す（labelOnly）
+  sel.classed('label-only', (p) => !!p.labelOnly);
+  sel.select('text').text((p) => p.name).attr('x', (p) => (p.labelOnly ? 0 : 11)); // 重なる町名は placePins で隠す
   placePins(d3.zoomTransform(svg.node()));
 }
 
@@ -203,8 +225,9 @@ function placePins(t) {
   // 町名が重なるときは、上から順に置いていき、先に置いた町名と重なるものは隠す
   const placed = [];
   pins.select('text').each(function (p) {
-    const w = this.getComputedTextLength() + 11;
-    const box = [p.xy[0], p.xy[1] - 9, p.xy[0] + w, p.xy[1] + 9];
+    const w = this.getComputedTextLength();
+    const x0 = p.labelOnly ? p.xy[0] - w / 2 : p.xy[0];
+    const box = [x0, p.xy[1] - 9, x0 + w + (p.labelOnly ? 0 : 11), p.xy[1] + 9];
     const hit = placed.some((b) => box[0] < b[2] && b[0] < box[2] && box[1] < b[3] && b[1] < box[3]);
     if (!hit) placed.push(box);
     d3.select(this).attr('visibility', hit ? 'hidden' : null);
@@ -223,6 +246,7 @@ function zoomArea(hits) {
 function resetMap() {
   highlight([]);
   showPins([]);
+  clearTowns();
   currentFocus = null;
   svg.transition().duration(900).call(zoom.transform, d3.zoomIdentity);
 }
@@ -266,6 +290,8 @@ function findMunicipalities(r) {
 // ---------- 入力に合わせて表示を更新 ----------
 function update(digits) {
   if (!features.length) return;
+  if (!path) draw(); // まだ地図を描けていなければ先に描く
+  if (!path) return;
   const id = ++requestId;
   if (!digits) {
     resetMap();
@@ -287,6 +313,7 @@ function update(digits) {
   }
 
   highlight(hits);
+  if (digits.length < 3) clearTowns();
   showHtml(`${label}<br><span class="addr">${escapeHtml(summarize(hits))}</span>` +
     `<br><span class="note">${found.length}市区町村・郵便番号 ${zipCount.toLocaleString()} 件</span>`);
 
@@ -320,9 +347,9 @@ function showTowns(digits, data, hits) {
 
   // 同じ町に複数の番号があることもあるので、町ごとにまとめる
   const towns = new Map();
-  entries.forEach(([t, [ci, name, lat, lng]]) => {
+  entries.forEach(([t, [ci, name, lat, lng, shp]]) => {
     const key = data.c[ci] + '|' + name;
-    if (!towns.has(key)) towns.set(key, { city: data.c[ci], name, lat, lng });
+    if (!towns.has(key)) towns.set(key, { key, city: data.c[ci], name, lat, lng, shp });
   });
   const list = [...towns.values()];
   const named = list.filter((x) => x.name);
@@ -348,6 +375,26 @@ function showTowns(digits, data, hits) {
   }
   showHtml(html);
 
+  // 市区町村が3つ以下に絞られていれば町丁目の境界を重ねる（読み込み済みならすぐ）
+  const codes = [...new Set(zoomArea(hits).map((f) => f.properties.N03_007))];
+  if (codes.length > TOWN_LAYER_LIMIT) {
+    clearTowns();
+    showPinsOrMuni(named, hits);
+    return;
+  }
+  if (codes.every((c) => shapeData.has(c))) {
+    renderTowns(codes, list, named, hits);
+    return;
+  }
+  showPinsOrMuni(named, hits); // 境界の読み込みが終わるまでは、これまでどおりピンで示す
+  const id = requestId;
+  Promise.all(codes.map(loadShapes)).then(() => {
+    if (id === requestId) renderTowns(codes, list, named, hits);
+  });
+}
+
+// 町丁目の境界がないときの表示: 候補の町が少なければピン、多ければ市区町村全体
+function showPinsOrMuni(named, hits) {
   const pins = named.filter((x) => x.lat != null);
   if (named.length <= PIN_LIMIT && pins.length) {
     showPins(pins.map((x) => ({ name: x.name, lat: x.lat, lng: x.lng })));
@@ -356,6 +403,83 @@ function showTowns(digits, data, hits) {
     showPins([]);
     zoomTo(zoomArea(hits));
   }
+}
+
+// ---------- 町丁目の境界 ----------
+function loadShapes(code) {
+  if (!shapeLoading.has(code)) {
+    shapeLoading.set(code, d3.json(SHAPES_URL(code)).then((topo) => {
+      const fs = topojson.feature(topo, Object.values(topo.objects)[0]).features;
+      fs.forEach((f, i) => { f.key = `${code}:${i}`; });
+      shapeData.set(code, fs);
+    }).catch(() => shapeData.set(code, []))); // 境界データがない市区町村（北方領土など）は空にしておく
+  }
+  return shapeLoading.get(code);
+}
+
+// 「14104:12,13|22131:5」→ ['14104:12', '14104:13', '22131:5']
+const parseShapeRef = (ref) => (ref ? ref.split('|').flatMap((part) => {
+  const [code, idx] = part.split(':');
+  return idx.split(',').map((i) => `${code}:${i}`);
+}) : []);
+
+// 市区町村の中の町丁目をすべて線で描き、候補の町を塗る。候補が少なければ町名を出してそこへ寄る
+function renderTowns(codes, list, named, hits) {
+  const all = codes.flatMap((c) => shapeData.get(c) || []);
+  const byKey = new Map(all.map((f) => [f.key, f]));
+  const candidates = new Set();
+  const shapesOf = new Map(); // 町 → その町の区画
+  list.forEach((x) => {
+    const fs = parseShapeRef(x.shp).map((k) => byKey.get(k)).filter(Boolean);
+    fs.forEach((f) => candidates.add(f.key));
+    if (fs.length) shapesOf.set(x.key, fs);
+  });
+
+  svg.classed('has-towns', all.length > 0); // 町を塗るときは市区町村の塗りを薄くする
+  g.select('.town-layer').selectAll('path')
+    .data(all, (f) => f.key)
+    .join('path')
+    .attr('class', (f) => (candidates.has(f.key) ? 'town hit' : 'town'))
+    .attr('d', path);
+
+  if (!all.length) {
+    showPinsOrMuni(named, hits);
+    return;
+  }
+  if (named.length > PIN_LIMIT) {
+    // 候補の町が多いうちは町名を出さず、塗った町が画面いっぱいになるところまで寄る
+    showPins([]);
+    const shapes = all.filter((f) => candidates.has(f.key));
+    if (shapes.length) applyFocus({ towns: shapes, extraPins: [], ratio: FIT_RATIO_MANY }, 900);
+    else zoomTo(zoomArea(hits));
+    return;
+  }
+  const marks = [];
+  const focusShapes = [];
+  named.forEach((x) => {
+    const fs = shapesOf.get(x.key);
+    if (fs) {
+      focusShapes.push(...fs);
+      const [lng, lat] = d3.geoCentroid({ type: 'FeatureCollection', features: fs });
+      marks.push({ name: x.name, lat, lng, labelOnly: true });
+    } else if (x.lat != null) {
+      marks.push({ name: x.name, lat: x.lat, lng: x.lng }); // 境界が見つからない町はピンで示す
+    }
+  });
+  showPins(marks);
+  if (focusShapes.length) {
+    // 町が1つなら周りの町も見えるよう控えめに、複数なら候補の町が大きく見えるように寄る
+    applyFocus({ towns: focusShapes, extraPins: marks.filter((m) => !m.labelOnly), ratio: named.length === 1 ? 0.35 : 0.7 }, 900);
+  } else if (marks.length) {
+    zoomToPins(marks, zoomArea(hits));
+  } else {
+    zoomTo(zoomArea(hits));
+  }
+}
+
+function clearTowns() {
+  g.select('.town-layer').selectAll('path').remove();
+  svg.classed('has-towns', false);
 }
 
 // 候補の市区町村を短い文にまとめる（例: 「東京都 千代田区・中央区・港区 ほか5市区町村」）
