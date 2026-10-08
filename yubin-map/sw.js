@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yubin-map-v4';
+const CACHE_NAME = 'yubin-map-v5';
 const ASSETS = [
   './',
   './index.html',
@@ -26,8 +26,18 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // 郵便番号の検索結果は毎回ネットから取る（キャッシュしない）
-  if (e.request.url.includes('zipcloud.ibsnet.co.jp')) return;
+  // 町データ（data/towns/上3桁.json）は使った分だけ保存して、次回からはオフラインでも使えるようにする
+  if (e.request.url.includes('/data/towns/')) {
+    e.respondWith(
+      caches.open(CACHE_NAME).then(c =>
+        c.match(e.request).then(r => r || fetch(e.request).then(res => {
+          if (res.ok) c.put(e.request, res.clone());
+          return res;
+        }))
+      )
+    );
+    return;
+  }
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(e.request))
   );

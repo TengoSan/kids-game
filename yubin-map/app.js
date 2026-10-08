@@ -2,22 +2,25 @@
 // 1. 全国の市区町村境界（TopoJSON）と、市区町村ごとの郵便番号一覧を読み込む
 // 2. 入力された数字で始まる郵便番号を持つ市区町村を塗り、そこへズームする
 //    （1桁ごとに候補が絞られていく）
-// 3. 7桁そろったら zipcloud API で町名まで表示する
+// 3. 3桁以上入力されたら町（港町など）の一覧と位置を読み込み、候補の町が少なくなったら
+//    町の位置にピンを立てて寄る（市区町村の中での6・7桁目の違いが見えるように）
 
 const MAP_URL = 'data/municipalities.json';
 const ZIP_URL = 'data/zipindex.json';
-const API_URL = 'https://zipcloud.ibsnet.co.jp/api/search?zipcode=';
-const MAX_ZOOM = 600; // 東京の区など小さい地域まで寄れるよう大きめ
+const TOWNS_URL = (head) => `data/towns/${head}.json`; // 上3桁ごとの町名・位置
+const MAX_ZOOM = 8000; // 町が数百mおきに並ぶ都心部でもピンが重ならないところまで寄れるよう大きめ
 // 塗った地域が画面の何割を占めるまで寄るか。
 // 1〜3市区町村なら周りの地域も見えるよう控えめに、それより多いときは候補全体が大きく見えるように
 const FIT_RATIO_FEW = 0.3;
 const FIT_RATIO_MANY = 0.8;
 const FAR_ISLANDS = '13421'; // 小笠原村
 const OUTLINE_LIMIT = 30; // 候補がこの数以下になったら外枠を描く
+const PIN_LIMIT = 15;     // 候補の町がこの数以下になったらピンを立てる
 const DEFAULT_MESSAGE = '郵便番号を1桁ずつ入力すると、該当する地域が絞り込まれます';
 
 const svg = d3.select('#map');
 const g = svg.append('g');
+const pinLayer = svg.append('g').attr('class', 'pin-layer'); // ピンは拡大しても大きさを変えないので地図とは別の層
 const input = document.getElementById('zip-input');
 const form = document.getElementById('search-form');
 const resultEl = document.getElementById('result');
@@ -26,17 +29,23 @@ let features = [];       // 市区町村ごとの地形
 let byCode = new Map();  // 市区町村コード → 地形（飛び地で複数あることも）
 let zipIndex = [];       // [市区町村コード, [[上3桁, [下4桁...]], ...]]
 let path = null;
+let projection = null;
+let currentPins = [];    // いま立てているピン { name, lng, lat }
+const townCache = new Map(); // 上3桁 → 町データ（読み込み済み）
 let muniPaths = null;
 let currentHits = [];    // いま塗っている市区町村
-let currentFocus = [];   // いまズームしている範囲の市区町村
+let currentFocus = null; // いまズームしている範囲（画面サイズが変わったら同じ範囲に寄り直す）
 let requestId = 0;       // 古い検索結果で上書きしないための番号
 
 const zoom = d3.zoom()
   .scaleExtent([1, MAX_ZOOM])
-  .on('zoom', (e) => g.attr('transform', e.transform));
+  .on('zoom', (e) => {
+    g.attr('transform', e.transform);
+    placePins(e.transform);
+  });
 svg.call(zoom).on('dblclick.zoom', null);
 
-// 「横浜市」+「中区」→「横浜市中区」。zipcloud の address2 と同じ形にそろえる
+// 「横浜市」+「中区」→「横浜市中区」。郵便番号データの市区町村名と同じ形にそろえる
 const fullName = (f) => (f.properties.N03_003 || '') + (f.properties.N03_004 || '');
 // 画面表示用。東京都の島しょ部に付く「大島支庁」などは住所に含まれないので外す
 const displayName = (f) => fullName(f).replace(/^.+支庁/, '');
@@ -76,12 +85,13 @@ Promise.all([d3.json(MAP_URL), d3.json(ZIP_URL)]).then(([topo, zips]) => {
 // 画面サイズに合わせて地図を描き直す
 function draw() {
   const { width, height } = svg.node().getBoundingClientRect();
+  if (!width || !height) return; // 画面の切り替え途中などで地図の大きさが0のときは描かない
   svg.attr('viewBox', `0 0 ${width} ${height}`);
   zoom.extent([[0, 0], [width, height]]).translateExtent([[-width, -height], [width * 2, height * 2]]);
 
   // 南鳥島・沖ノ鳥島（小笠原村）まで入れると本土が小さくなるので、全体表示の範囲からは外す
   const mainland = features.filter((f) => f.properties.N03_007 !== FAR_ISLANDS);
-  const projection = d3.geoMercator().fitExtent(
+  projection = d3.geoMercator().fitExtent(
     [[16, 16], [width - 16, height - 16]],
     { type: 'FeatureCollection', features: mainland }
   );
@@ -90,7 +100,7 @@ function draw() {
   g.select('.pref-border').attr('d', path);
   g.select('.hit-layer').selectAll('path').attr('d', path);
 
-  if (currentFocus.length) zoomTo(currentFocus, 0);
+  if (currentFocus) applyFocus(currentFocus, 0);
   else svg.call(zoom.transform, d3.zoomIdentity);
 }
 
@@ -112,24 +122,93 @@ function highlight(hits) {
     .attr('d', path);
 }
 
+// 市区町村に寄る。1〜3市区町村なら周りも見えるよう控えめに、それより多いときは大きく
 function zoomTo(targets, duration = 900) {
-  currentFocus = targets;
   if (!targets.length) return;
-  const { width, height } = svg.node().getBoundingClientRect();
+  applyFocus({ features: targets }, duration);
+}
+
+// ピン（町の位置）に寄る。この地図には道路などがなく深く寄っても位置が分かりにくいので、
+// ピン1本のときは市区町村の大きさの半分以上を映し、市区町村の中のどのあたりかが分かるようにする。
+// 複数のときはピン同士が重ならないよう、ピンの広がりに合わせて寄る
+function zoomToPins(pins, muni, duration = 900) {
+  if (!pins.length) return;
+  applyFocus({ pins, muni }, duration);
+}
+
+function applyFocus(focus, duration) {
+  currentFocus = focus;
+  let box;
+  let ratio;
+  if (focus.pins) {
+    const pts = focus.pins.map((p) => projection([p.lng, p.lat]));
+    box = [d3.min(pts, (p) => p[0]), d3.min(pts, (p) => p[1]), d3.max(pts, (p) => p[0]), d3.max(pts, (p) => p[1])];
+    const [mx0, my0, mx1, my1] = boundsOf(focus.muni);
+    const minSpan = Math.max(mx1 - mx0, my1 - my0) * (focus.pins.length === 1 ? 0.5 : 0.03);
+    const cx = (box[0] + box[2]) / 2;
+    const cy = (box[1] + box[3]) / 2;
+    const half = Math.max(box[2] - box[0], box[3] - box[1], minSpan) / 2;
+    box = [cx - half, cy - half, cx + half, cy + half];
+    ratio = 0.7;
+  } else {
+    box = boundsOf(focus.features);
+    ratio = focus.features.length <= 3 ? FIT_RATIO_FEW : FIT_RATIO_MANY;
+  }
+  zoomToBox(box, ratio, duration);
+}
+
+function boundsOf(fs) {
   let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
-  targets.forEach((f) => {
+  fs.forEach((f) => {
     const [[a, b], [c, d]] = path.bounds(f);
     x0 = Math.min(x0, a); y0 = Math.min(y0, b);
     x1 = Math.max(x1, c); y1 = Math.max(y1, d);
   });
+  return [x0, y0, x1, y1];
+}
+
+function zoomToBox([x0, y0, x1, y1], ratio, duration) {
+  const { width, height } = svg.node().getBoundingClientRect();
+  if (!width || !height || ![x0, y0, x1, y1].every(Number.isFinite)) return; // 計算できない範囲では動かさない
   // 候補が全国に散らばっているときは全国表示より引かない
-  const ratio = targets.length <= 3 ? FIT_RATIO_FEW : FIT_RATIO_MANY;
   const scale = Math.max(1, Math.min(MAX_ZOOM, ratio / Math.max((x1 - x0) / width, (y1 - y0) / height)));
   const t = d3.zoomIdentity
     .translate(width / 2, height / 2)
     .scale(scale)
     .translate(-(x0 + x1) / 2, -(y0 + y1) / 2);
   svg.transition().duration(duration).call(zoom.transform, t);
+}
+
+// ---------- ピン ----------
+function showPins(pins) {
+  currentPins = pins;
+  svg.classed('has-pins', pins.length > 0); // ピンがあるときは塗りを薄くしてピンを目立たせる
+  const sel = pinLayer.selectAll('g.pin')
+    .data(pins, (p) => p.name)
+    .join((enter) => {
+      const pin = enter.append('g').attr('class', 'pin');
+      pin.append('circle').attr('r', 7);
+      pin.append('text').attr('x', 11).attr('y', 5);
+      return pin;
+    });
+  sel.select('text').text((p) => p.name); // 重なる町名は placePins で隠す
+  placePins(d3.zoomTransform(svg.node()));
+}
+
+function placePins(t) {
+  if (!projection || !Number.isFinite(t.k)) return;
+  const pins = pinLayer.selectAll('g.pin');
+  pins.each((p) => { p.xy = t.apply(projection([p.lng, p.lat])); })
+    .attr('transform', (p) => `translate(${p.xy})`);
+  // 町名が重なるときは、上から順に置いていき、先に置いた町名と重なるものは隠す
+  const placed = [];
+  pins.select('text').each(function (p) {
+    const w = this.getComputedTextLength() + 11;
+    const box = [p.xy[0], p.xy[1] - 9, p.xy[0] + w, p.xy[1] + 9];
+    const hit = placed.some((b) => box[0] < b[2] && b[0] < box[2] && box[1] < b[3] && b[1] < box[3]);
+    if (!hit) placed.push(box);
+    d3.select(this).attr('visibility', hit ? 'hidden' : null);
+  });
 }
 
 // ズームする範囲。塗った地域はすべて画面に収める（沖縄なども切らない）。
@@ -143,7 +222,8 @@ function zoomArea(hits) {
 
 function resetMap() {
   highlight([]);
-  currentFocus = [];
+  showPins([]);
+  currentFocus = null;
   svg.transition().duration(900).call(zoom.transform, d3.zoomIdentity);
 }
 
@@ -186,7 +266,7 @@ function findMunicipalities(r) {
 // ---------- 入力に合わせて表示を更新 ----------
 function update(digits) {
   if (!features.length) return;
-  requestId++;
+  const id = ++requestId;
   if (!digits) {
     resetMap();
     showMessage(DEFAULT_MESSAGE);
@@ -199,21 +279,83 @@ function update(digits) {
   const label = `〒${formatPartial(digits)}`;
 
   if (!hits.length) {
-    if (digits.length === 7) {
-      fetchAddress(digits, []); // 手元のデータにない新しい番号の可能性があるので API でも確認
-    } else {
-      resetMap();
-      showMessage(`${label} で始まる郵便番号はありません`, true);
-    }
+    resetMap();
+    showMessage(digits.length === 7
+      ? `〒${formatZip(digits)} に該当する住所は見つかりませんでした`
+      : `${label} で始まる郵便番号はありません`, true);
     return;
   }
 
   highlight(hits);
-  zoomTo(zoomArea(hits));
   showHtml(`${label}<br><span class="addr">${escapeHtml(summarize(hits))}</span>` +
     `<br><span class="note">${found.length}市区町村・郵便番号 ${zipCount.toLocaleString()} 件</span>`);
 
-  if (digits.length === 7) fetchAddress(digits, hits);
+  // 3桁以上なら町の一覧を読み込んで、町名とピンを出す（読み込み済みならすぐ）
+  if (digits.length >= 3) {
+    const head = digits.slice(0, 3);
+    if (townCache.has(head)) {
+      showTowns(digits, townCache.get(head), hits);
+      return;
+    }
+    d3.json(TOWNS_URL(head)).then((data) => {
+      townCache.set(head, data);
+      if (id === requestId) showTowns(digits, data, hits);
+    }).catch(() => { /* 町データが読めなくても市区町村までの表示は残す */ });
+  }
+  showPins([]);
+  zoomTo(zoomArea(hits));
+}
+
+// 町（港町・山下町など）の単位で候補をまとめ、少なければピンを立ててそこへ寄る
+function showTowns(digits, data, hits) {
+  const tail = digits.slice(3);
+  const biz = new Set(data.b);
+  const entries = Object.entries(data.z)
+    .filter(([t]) => t.startsWith(tail) && (digits.length === 7 || !biz.has(t)));
+  if (!entries.length) {
+    showPins([]);
+    zoomTo(zoomArea(hits));
+    return;
+  }
+
+  // 同じ町に複数の番号があることもあるので、町ごとにまとめる
+  const towns = new Map();
+  entries.forEach(([t, [ci, name, lat, lng]]) => {
+    const key = data.c[ci] + '|' + name;
+    if (!towns.has(key)) towns.set(key, { city: data.c[ci], name, lat, lng });
+  });
+  const list = [...towns.values()];
+  const named = list.filter((x) => x.name);
+  const pref = hits[0].properties.N03_001;
+  const cities = [...new Set(list.map((x) => x.city))];
+
+  let html;
+  if (digits.length === 7) {
+    const [t, [ci, name]] = entries[0];
+    const city = data.c[ci];
+    html = `〒${formatZip(digits)}<br><span class="addr">${escapeHtml(pref + city + name)}</span>`;
+    if (biz.has(t)) html += '<br><span class="note">事業所・私書箱用の郵便番号です</span>';
+    if (findMunicipalities({ address1: pref, address2: city }).approx) {
+      html += '<br><span class="note">地図の境界データが古いため、市全体を塗っています</span>';
+    }
+  } else {
+    const head = cities.length === 1 ? pref + cities[0] : summarize(hits);
+    const shown = named.slice(0, 3).map((x) => x.name).join('・');
+    const more = named.length > 3 ? ` ほか${named.length - 3}町域` : '';
+    html = `〒${formatPartial(digits)}<br><span class="addr">${escapeHtml(head)}` +
+      (shown ? ` ${escapeHtml(shown)}${more}` : '') + '</span>' +
+      `<br><span class="note">${named.length}町域・郵便番号 ${entries.length.toLocaleString()} 件</span>`;
+  }
+  showHtml(html);
+
+  const pins = named.filter((x) => x.lat != null);
+  if (named.length <= PIN_LIMIT && pins.length) {
+    showPins(pins.map((x) => ({ name: x.name, lat: x.lat, lng: x.lng })));
+    zoomToPins(pins, zoomArea(hits));
+  } else {
+    showPins([]);
+    zoomTo(zoomArea(hits));
+  }
 }
 
 // 候補の市区町村を短い文にまとめる（例: 「東京都 千代田区・中央区・港区 ほか5市区町村」）
@@ -232,43 +374,6 @@ function summarize(hits) {
   }
   const shown = names.slice(0, 3).map((x) => x.n).join('・');
   return `${prefs[0]} ${shown}` + (names.length > 3 ? ` ほか${names.length - 3}市区町村` : '');
-}
-
-// 7桁そろったら町名まで調べる。手元のデータで見つからなかった番号もここで地図に反映する
-async function fetchAddress(zip, localHits) {
-  const id = requestId;
-  try {
-    const res = await fetch(API_URL + zip);
-    const json = await res.json();
-    if (id !== requestId) return; // 入力が変わっている
-    if (json.status !== 200) throw new Error(json.message);
-    if (!json.results) {
-      if (!localHits.length) {
-        resetMap();
-        showMessage(`〒${formatZip(zip)} に該当する住所は見つかりませんでした`, true);
-      }
-      return;
-    }
-    const results = json.results;
-    let hits = localHits;
-    let approx = false;
-    if (!hits.length) {
-      hits = [...new Set(results.flatMap((r) => findMunicipalities(r).hits))];
-      if (hits.length) { highlight(hits); zoomTo(zoomArea(hits)); }
-    }
-    approx = results.some((r) => findMunicipalities(r).approx);
-
-    const addrs = results.map((r) => r.address1 + r.address2 + r.address3);
-    let html = `〒${formatZip(zip)}<br><span class="addr">${escapeHtml(addrs[0])}</span>`;
-    if (addrs.length > 1) html += `<span class="note">（ほか ${addrs.length - 1} 件）</span>`;
-    if (approx) html += '<br><span class="note">地図データが古いため、市全体を表示しています</span>';
-    showHtml(html);
-  } catch (err) {
-    // 通信できなくても、手元のデータで塗った地図と市区町村名はそのまま残す
-    if (id === requestId && !localHits.length) {
-      showMessage('通信エラー：インターネット接続を確認してください', true);
-    }
-  }
 }
 
 // ---------- 表示まわり ----------

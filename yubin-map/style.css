@@ -115,6 +115,7 @@ h1 { margin: 0; font-size: 1.2rem; }
 }
 .muni.in-pref { fill: var(--pref-hit); }
 .muni.hit { fill: var(--hit); }
+#map.has-pins .muni.hit { fill-opacity: .45; }
 .pref-border {
   fill: none;
   stroke: var(--pref-border);
@@ -130,6 +131,18 @@ h1 { margin: 0; font-size: 1.2rem; }
   pointer-events: none;
 }
 .hit-outline.many { stroke: var(--hit); stroke-width: 1.5px; }
+
+/* 町の位置を示すピン（拡大しても大きさは変わらない） */
+.pin-layer { pointer-events: none; }
+.pin circle { fill: var(--panel); stroke: var(--text); stroke-width: 3px; } /* 塗った地域（オレンジ）の上でも見える配色 */
+.pin text {
+  font-size: 13px;
+  font-weight: bold;
+  fill: var(--text);
+  stroke: var(--panel);
+  stroke-width: 4px;
+  paint-order: stroke; /* 文字の周りに縁取りを付けて地図の上でも読めるように */
+}
 
 .map-buttons {
   position: absolute; right: 12px; bottom: 12px;
