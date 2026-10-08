@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yubin-map-v2';
+const CACHE_NAME = 'yubin-map-v4';
 const ASSETS = [
   './',
   './index.html',

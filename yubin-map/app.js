@@ -8,8 +8,12 @@ const MAP_URL = 'data/municipalities.json';
 const ZIP_URL = 'data/zipindex.json';
 const API_URL = 'https://zipcloud.ibsnet.co.jp/api/search?zipcode=';
 const MAX_ZOOM = 600; // 東京の区など小さい地域まで寄れるよう大きめ
-const FIT_RATIO = 0.3; // 塗った地域が画面の何割を占めるまで寄るか（周りの地域も見えるように控えめ）
+// 塗った地域が画面の何割を占めるまで寄るか。
+// 1〜3市区町村なら周りの地域も見えるよう控えめに、それより多いときは候補全体が大きく見えるように
+const FIT_RATIO_FEW = 0.3;
+const FIT_RATIO_MANY = 0.8;
 const FAR_ISLANDS = '13421'; // 小笠原村
+const OUTLINE_LIMIT = 30; // 候補がこの数以下になったら外枠を描く
 const DEFAULT_MESSAGE = '郵便番号を1桁ずつ入力すると、該当する地域が絞り込まれます';
 
 const svg = d3.select('#map');
@@ -24,6 +28,7 @@ let zipIndex = [];       // [市区町村コード, [[上3桁, [下4桁...]], ..
 let path = null;
 let muniPaths = null;
 let currentHits = [];    // いま塗っている市区町村
+let currentFocus = [];   // いまズームしている範囲の市区町村
 let requestId = 0;       // 古い検索結果で上書きしないための番号
 
 const zoom = d3.zoom()
@@ -62,7 +67,7 @@ Promise.all([d3.json(MAP_URL), d3.json(ZIP_URL)]).then(([topo, zips]) => {
 
   draw();
   document.getElementById('loading').remove();
-  window.addEventListener('resize', debounce(draw, 200));
+  new ResizeObserver(debounce(draw, 150)).observe(document.getElementById('map-wrap'));
   if (input.value) update(normalize(input.value).slice(0, 7));
 }).catch(() => {
   document.getElementById('loading').textContent = '地図データを読み込めませんでした';
@@ -85,7 +90,7 @@ function draw() {
   g.select('.pref-border').attr('d', path);
   g.select('.hit-layer').selectAll('path').attr('d', path);
 
-  if (currentHits.length) zoomTo(currentHits, 0);
+  if (currentFocus.length) zoomTo(currentFocus, 0);
   else svg.call(zoom.transform, d3.zoomIdentity);
 }
 
@@ -97,15 +102,19 @@ function highlight(hits) {
   muniPaths
     .classed('in-pref', (f) => prefs.has(f.properties.N03_001))
     .classed('hit', (f) => hitSet.has(f));
-  // 選ばれた地域の外枠を一番上に重ねて見やすくする
+  // 選ばれた地域の外枠を一番上に重ねて見やすくする。
+  // 候補が多いときは白い枠線だらけで色が見えなくなるので、塗りと同じ色の枠線にする
+  // （小さな島でも色が付いているのが分かるように、枠線自体は残す）
   g.select('.hit-layer').selectAll('path')
     .data(hits)
     .join('path')
-    .attr('class', 'hit-outline')
+    .attr('class', hits.length <= OUTLINE_LIMIT ? 'hit-outline' : 'hit-outline many')
     .attr('d', path);
 }
 
 function zoomTo(targets, duration = 900) {
+  currentFocus = targets;
+  if (!targets.length) return;
   const { width, height } = svg.node().getBoundingClientRect();
   let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
   targets.forEach((f) => {
@@ -114,7 +123,8 @@ function zoomTo(targets, duration = 900) {
     x1 = Math.max(x1, c); y1 = Math.max(y1, d);
   });
   // 候補が全国に散らばっているときは全国表示より引かない
-  const scale = Math.max(1, Math.min(MAX_ZOOM, FIT_RATIO / Math.max((x1 - x0) / width, (y1 - y0) / height)));
+  const ratio = targets.length <= 3 ? FIT_RATIO_FEW : FIT_RATIO_MANY;
+  const scale = Math.max(1, Math.min(MAX_ZOOM, ratio / Math.max((x1 - x0) / width, (y1 - y0) / height)));
   const t = d3.zoomIdentity
     .translate(width / 2, height / 2)
     .scale(scale)
@@ -122,27 +132,18 @@ function zoomTo(targets, duration = 900) {
   svg.transition().duration(duration).call(zoom.transform, t);
 }
 
-// 候補が離島などに散らばっていても全国表示に戻らないよう、郵便番号の件数が多い地域を優先して寄る。
-// 件数で重み付けした中心から近い順に、全体の9割の件数をカバーするまでの市区町村を返す
-function mainArea(hits, weightOf) {
-  if (hits.length <= 1) return hits;
-  const pts = hits.map((f) => ({ f, c: path.centroid(f), w: weightOf(f) || 1 }));
-  const total = pts.reduce((sum, p) => sum + p.w, 0);
-  const cx = pts.reduce((sum, p) => sum + p.c[0] * p.w, 0) / total;
-  const cy = pts.reduce((sum, p) => sum + p.c[1] * p.w, 0) / total;
-  pts.sort((a, b) => Math.hypot(a.c[0] - cx, a.c[1] - cy) - Math.hypot(b.c[0] - cx, b.c[1] - cy));
-  const result = [];
-  let covered = 0;
-  for (const p of pts) {
-    result.push(p.f);
-    covered += p.w;
-    if (covered >= total * 0.9) break;
-  }
-  return result;
+// ズームする範囲。塗った地域はすべて画面に収める（沖縄なども切らない）。
+// ただし伊豆諸島・小笠原（東京都の「〇〇支庁」）は本州から1000km近く離れていて、
+// 一緒に収めると東京の区が点になってしまうので、他に候補があるときはズーム範囲から外す（色は付ける）
+const isTokyoIsland = (f) => (f.properties.N03_003 || '').endsWith('支庁');
+function zoomArea(hits) {
+  const main = hits.filter((f) => !isTokyoIsland(f));
+  return main.length ? main : hits;
 }
 
 function resetMap() {
   highlight([]);
+  currentFocus = [];
   svg.transition().duration(900).call(zoom.transform, d3.zoomIdentity);
 }
 
@@ -208,8 +209,7 @@ function update(digits) {
   }
 
   highlight(hits);
-  const weight = new Map(found.map((m) => [m.code, m.count]));
-  zoomTo(mainArea(hits, (f) => weight.get(f.properties.N03_007)));
+  zoomTo(zoomArea(hits));
   showHtml(`${label}<br><span class="addr">${escapeHtml(summarize(hits))}</span>` +
     `<br><span class="note">${found.length}市区町村・郵便番号 ${zipCount.toLocaleString()} 件</span>`);
 
@@ -254,7 +254,7 @@ async function fetchAddress(zip, localHits) {
     let approx = false;
     if (!hits.length) {
       hits = [...new Set(results.flatMap((r) => findMunicipalities(r).hits))];
-      if (hits.length) { highlight(hits); zoomTo(hits); }
+      if (hits.length) { highlight(hits); zoomTo(zoomArea(hits)); }
     }
     approx = results.some((r) => findMunicipalities(r).approx);
 
@@ -297,28 +297,31 @@ function debounce(fn, ms) {
   return () => { clearTimeout(t); t = setTimeout(fn, ms); };
 }
 
-// 入力欄：打ちながら「123-4567」の形に整え、1桁ごとに地図を更新する
+// 入力欄の数字を「123-4567」の形で表示し、変わっていれば地図を更新する
 let lastDigits = '';
-input.addEventListener('input', () => {
-  const digits = normalize(input.value).slice(0, 7);
+function setDigits(text) {
+  const digits = normalize(text).slice(0, 7);
   input.value = formatZip(digits);
   if (digits !== lastDigits) {
     lastDigits = digits;
     update(digits);
   }
-});
+}
+
+// PC のキーボードや貼り付けでの入力
+input.addEventListener('input', () => setDigits(input.value));
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   input.blur(); // スマホでキーボードを閉じて地図を見やすくする
 });
 
-document.getElementById('clear-btn').addEventListener('click', () => {
-  input.value = '';
-  lastDigits = '';
-  update('');
-  input.focus();
+// 画面のテンキー
+document.querySelectorAll('#keypad [data-key]').forEach((btn) => {
+  btn.addEventListener('click', () => setDigits(lastDigits + btn.dataset.key));
 });
+document.getElementById('bs-btn').addEventListener('click', () => setDigits(lastDigits.slice(0, -1)));
+document.getElementById('clear-btn').addEventListener('click', () => setDigits(''));
 
 document.getElementById('zoom-in').addEventListener('click', () => svg.transition().call(zoom.scaleBy, 2));
 document.getElementById('zoom-out').addEventListener('click', () => svg.transition().call(zoom.scaleBy, 0.5));
