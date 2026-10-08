@@ -1,0 +1,9 @@
+{
+  "name": "ゆうびんばんごうマップ",
+  "short_name": "ゆうびんマップ",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f1ea",
+  "theme_color": "#e2572b"
+}

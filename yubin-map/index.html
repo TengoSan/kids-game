@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ゆうびんばんごうマップ</title>
+  <meta name="theme-color" content="#e2572b">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="title-row">
+      <h1>〒 ゆうびんばんごうマップ</h1>
+      <a class="top-link" href="../">🏠 トップにもどる</a>
+    </div>
+    <form id="search-form" autocomplete="off">
+      <input id="zip-input" type="text" inputmode="numeric" maxlength="8"
+             placeholder="例: 100-0001" aria-label="郵便番号（7桁）">
+      <button type="submit" id="search-btn">検索</button>
+    </form>
+    <div id="result" class="result" aria-live="polite">7桁の郵便番号を入力してください</div>
+  </header>
+
+  <main id="map-wrap">
+    <svg id="map" role="img" aria-label="日本地図"></svg>
+    <div id="loading">地図を読み込み中…</div>
+    <div class="map-buttons">
+      <button type="button" id="zoom-in" aria-label="拡大">＋</button>
+      <button type="button" id="zoom-out" aria-label="縮小">－</button>
+      <button type="button" id="reset-btn" aria-label="全国表示">全国</button>
+    </div>
+  </main>
+
+  <footer>
+    出典：「国土数値情報（行政区域データ）」（国土交通省）を加工して作成（2021年1月1日時点の境界）／
+    加工データ：スマートニュース メディア研究所 japan-topography／
+    郵便番号検索：zipcloud
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    }
+  </script>
+</body>
+</html>
