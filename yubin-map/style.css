@@ -64,16 +64,15 @@ h1 { margin: 0; font-size: 1.2rem; }
   letter-spacing: .08em;
 }
 #zip-input:focus { outline: none; border-color: var(--accent); }
-#search-btn {
+#clear-btn {
   font-size: 1.1rem;
   padding: 0 20px;
-  border: none;
+  border: 2px solid var(--border);
   border-radius: 10px;
-  background: var(--accent);
-  color: #fff;
+  background: var(--panel);
+  color: var(--text);
   cursor: pointer;
 }
-#search-btn:disabled { opacity: .5; }
 
 .result { margin-top: 8px; min-height: 1.6em; font-size: 1rem; color: var(--muted); }
 .result .addr { font-size: 1.15rem; font-weight: bold; color: var(--text); }

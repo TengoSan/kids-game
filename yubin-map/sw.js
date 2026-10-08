@@ -1,4 +1,4 @@
-const CACHE_NAME = 'yubin-map-v1';
+const CACHE_NAME = 'yubin-map-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -6,6 +6,7 @@ const ASSETS = [
   './app.js',
   './manifest.json',
   './data/municipalities.json',
+  './data/zipindex.json',
   'https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js',
   'https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js',
 ];

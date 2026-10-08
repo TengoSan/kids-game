@@ -12,14 +12,14 @@
   <header>
     <div class="title-row">
       <h1>〒 ゆうびんばんごうマップ</h1>
-      <a class="top-link" href="../">🏠 トップにもどる</a>
+      <a class="top-link" href="../">トップへ戻る</a>
     </div>
     <form id="search-form" autocomplete="off">
       <input id="zip-input" type="text" inputmode="numeric" maxlength="8"
-             placeholder="例: 100-0001" aria-label="郵便番号（7桁）">
-      <button type="submit" id="search-btn">検索</button>
+             placeholder="例: 100-0001" aria-label="郵便番号">
+      <button type="button" id="clear-btn">クリア</button>
     </form>
-    <div id="result" class="result" aria-live="polite">7桁の郵便番号を入力してください</div>
+    <div id="result" class="result" aria-live="polite">郵便番号を1桁ずつ入力すると、該当する地域が絞り込まれます</div>
   </header>
 
   <main id="map-wrap">
@@ -35,7 +35,7 @@
   <footer>
     出典：「国土数値情報（行政区域データ）」（国土交通省）を加工して作成（2021年1月1日時点の境界）／
     加工データ：スマートニュース メディア研究所 japan-topography／
-    郵便番号検索：zipcloud
+    郵便番号データ：日本郵便（yubinbango-data 経由）／町名検索：zipcloud
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
