@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1E1B19">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ピクセル・ホップ">
+<title>ピクセル・ホップ</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DotGothic16&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="stage">
+  <canvas id="game" width="480" height="272"></canvas>
+
+  <!-- ゲーム中の表示（ステージ名・コイン・残機・タイム） -->
+  <div id="hud" hidden>
+    <div class="hud-left">
+      <span id="hud-stage">ステージ 1</span>
+    </div>
+    <div class="hud-center">
+      <span class="hud-item"><i class="icon-coin"></i><span id="hud-coins">0</span></span>
+      <span class="hud-item"><img id="hud-life-icon" alt=""><span id="hud-lives">3</span></span>
+      <span class="hud-item"><svg class="icon-clock" viewBox="0 0 8 8"><path d="M2 0h4v1h1v1h1v4H7v1H6v1H2V7H1V6H0V2h1V1h1zM3 2v3h3V4H4V2z"/></svg><span id="hud-time">0:00</span></span>
+    </div>
+    <div class="hud-right">
+      <button id="btn-sound" class="icon-btn" aria-label="サウンド切替"></button>
+      <button id="btn-pause" class="icon-btn" aria-label="一時停止">
+        <svg viewBox="0 0 8 8"><path d="M1 1h2v6H1zM5 1h2v6H5z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="banner" hidden></div>
+  <div id="overlay"></div>
+</div>
+
+<div id="rotate-hint">端末を横向きにすると大きな画面で遊べます</div>
+
+<!-- タッチ操作ボタン（タッチ端末でのみ表示） -->
+<div id="controls">
+  <div id="pad">
+    <div class="pad-btn" data-dir="left"><i class="dash-zone"></i><svg viewBox="0 0 8 8"><path d="M5 1h1v6H5V6H4V5H3V3h1V2h1z"/></svg></div>
+    <div class="pad-btn" data-dir="right"><i class="dash-zone"></i><svg viewBox="0 0 8 8"><path d="M2 1h1v1h1v1h1v2H4v1H3v1H2z"/></svg></div>
+  </div>
+  <div id="b-btn"><span>B</span><small>DASH</small></div>
+  <div id="jump-btn"><span>JUMP</span></div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
